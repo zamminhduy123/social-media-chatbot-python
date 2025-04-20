@@ -1,0 +1,39 @@
+# Ignore Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Ignore virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Ignore dotenv files with secrets
+.env
+.env.*
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE and editor files
+.vscode/
+.idea/
+
+# Ignore log files
+*.log
+
+# Ignore Flask-related temporary files
+instance/
+*.db
+*.sqlite3
+
+# Ignore ngrok tunnels (if you're testing with ngrok)
+ngrok.log
+
+# Ignore package management lock files (optional)
+poetry.lock
+Pipfile.lock

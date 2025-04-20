@@ -35,9 +35,11 @@ def webhook():
                 sender_id = message_event["sender"]["id"]
                 if "message" in message_event and "text" in message_event["message"]:
                     user_message = message_event["message"]["text"]
+                    print("[Webhook]: User ask", user_message)
 
                     # === Get reply from Gemini ===
                     bot_reply = get_gemini_response(user_message)
+                    print("[Webhook]: reply", bot_reply[:100])
 
                     # === Send reply back to user ===
                     send_facebook_message(sender_id, bot_reply)

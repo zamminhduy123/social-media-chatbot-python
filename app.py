@@ -57,10 +57,7 @@ def webhook():
 def get_gemini_response(user_message):
     try:
         response = chat.send_message(user_message)
-        full_reply = ""
-        for chunk in response:
-            full_reply += chunk.text
-        return full_reply
+        return response.text
     except Exception as e:
         print("Gemini error:", e)
         return "Xin lỗi, mình chưa thể trả lời câu hỏi này."

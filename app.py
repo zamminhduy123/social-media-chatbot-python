@@ -2,7 +2,9 @@ from flask import Flask, request
 import requests
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+
+from gemini_prompt import MODEL_ID, PLACEHOLDER, get_chat_config
+from google import genai
 
 # === Load environment variables ===
 load_dotenv()
@@ -14,8 +16,14 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 FACEBOOK_VERSION = 'v22.0'
 
 # === Configure Gemini ===
-genai.configure(api_key=API_KEY)
-chat = genai.GenerativeModel("gemini-2.0-flash").start_chat()
+# Configure Gemini
+client = genai.Client(api_key=API_KEY)
+
+chat = client.chats.create(
+    model=MODEL_ID,
+    config=get_chat_config(),
+)
+
 app = Flask(__name__)
 
 

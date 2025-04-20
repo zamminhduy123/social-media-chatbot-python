@@ -15,10 +15,7 @@ FACEBOOK_VERSION = 'v22.0'
 
 # === Configure Gemini ===
 genai.configure(api_key=API_KEY)
-chat = genai.GenerativeModel("gemini-pro").start_chat()
-
-chat = genai.GenerativeModel("gemini-pro").start_chat()
-
+chat = genai.GenerativeModel("gemini-2.0-flash").start_chat()
 app = Flask(__name__)
 
 

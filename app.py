@@ -49,7 +49,7 @@ def webhook():
 
 def get_gemini_response(user_message):
     try:
-        response = chat.send_message_stream(user_message)
+        response = chat.send_message(user_message)
         full_reply = ""
         for chunk in response:
             full_reply += chunk.text

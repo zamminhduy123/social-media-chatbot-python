@@ -7,6 +7,7 @@ from gemini_prompt import MODEL_ID, PLACEHOLDER, get_chat_config
 from google import genai
 
 import random
+from datetime import datetime
 import time
 # === Load environment variables ===
 load_dotenv()
@@ -61,7 +62,7 @@ def send_facebook_message(psid, message):
 # === === === === === === === ROUTING FUNCTION
 def handle_user_message(message_event):
     # get time 
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    current_time = int(datetime.now().strftime("%Y%m%d%H%M%S"))
 
     # get message info
     sender_id = message_event["sender"]["id"]
@@ -81,7 +82,7 @@ def handle_user_message(message_event):
     print("[Webhook]: reply", bot_reply[:100])
 
     # delay the rest 
-    processing_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) - current_time
+    processing_time = int(datetime.now().strftime("%Y%m%d%H%M%S")) - current_time
     time.sleep(min(0, delay - processing_time))
 
     # === Send reply back to user ===

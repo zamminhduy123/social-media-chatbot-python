@@ -22,16 +22,22 @@ FACEBOOK_VERSION = 'v22.0'
 # Configure Gemini
 client = genai.Client(api_key=API_KEY)
 
-chat = client.chats.create(
-    model=MODEL_ID,
-    config=get_chat_config(),
-)
+chat_sessions = {}
 
 app = Flask(__name__)
 
 # === === === === === === === ACTUAL WORK FUNCTION
-def get_gemini_response(user_message):
+def get_gemini_response(user_message, sender_id):
+    # TODO: if there are too many chat sessions, it could cause Out of Mem issue.
+    # create new chat session if sender is new.
+    if sender_id not in chat_sessions:
+        chat_sessions[sender_id] = client.chats.create(
+            model=MODEL_ID,
+            config=get_chat_config(),
+        )
+    # actually generate response:
     try:
+        chat = chat_sessions[sender_id]
         response = chat.send_message(user_message)
         return response.text
     except Exception as e:
@@ -77,7 +83,7 @@ def handle_user_message(message_event):
     print(f"[Webhook]: delay {delay} seconds")
 
     # === Get reply from Gemini ===
-    bot_reply = get_gemini_response(user_message)
+    bot_reply = get_gemini_response(user_message, sender_id)
     delay = max(delay, len(bot_reply) / 30) # delay if the response is too long
     print("[Webhook]: reply", bot_reply[:100])
 
@@ -87,7 +93,6 @@ def handle_user_message(message_event):
 
     # === Send reply back to user ===
     send_facebook_message(sender_id, bot_reply)
-
 
 
 @app.route("/test")

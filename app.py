@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from gemini_prompt import MODEL_ID, PLACEHOLDER, get_chat_config
 from google import genai
 
+import random
+import time
 # === Load environment variables ===
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
@@ -26,6 +28,70 @@ chat = client.chats.create(
 
 app = Flask(__name__)
 
+# === === === === === === === ACTUAL WORK FUNCTION
+def get_gemini_response(user_message):
+    try:
+        response = chat.send_message(user_message)
+        return response.text
+    except Exception as e:
+        print("Gemini error:", e)
+        return "Xin lỗi, mình chưa có thông tin về vấn đề này. Bạn vui lòng liên hệ trực tiếp với KNI qua số điện thoại +84 091-839-1099 hoặc email nhat@kni.vn để được hỗ trợ tốt nhất nhé! :blush:"
+
+def send_typing_indicator(psid):
+    url = f"https://graph.facebook.com/v17.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+    payload = {
+        "recipient": {"id": psid},
+        "sender_action": "typing_on"
+    }
+    headers = {'Content-Type': 'application/json'}
+    requests.post(url, headers=headers, json=payload)
+
+def send_facebook_message(psid, message):
+    url = f"https://graph.facebook.com/{FACEBOOK_VERSION}/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+    payload = {
+        "recipient": {"id": psid},
+        "message": {"text": message}
+    }
+    headers = {'Content-Type': 'application/json'}
+    try:
+        requests.post(url, json=payload, headers=headers)
+    except Exception as e:
+        print("Error sending message to FB:", e)
+
+# === === === === === === === ROUTING FUNCTION
+def handle_user_message(message_event):
+    # get time 
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+
+    # get message info
+    sender_id = message_event["sender"]["id"]
+    user_message = message_event["message"]["text"]
+    print(f"[Webhook]: User [{sender_id}] ask", user_message, "at", current_time)
+
+    # send typing indicator
+    send_typing_indicator(sender_id)
+
+    # random reponse delay
+    delay = random.randint(1, 3)
+    print(f"[Webhook]: delay {delay} seconds")
+
+    # === Get reply from Gemini ===
+    bot_reply = get_gemini_response(user_message)
+    delay = max(delay, len(bot_reply) / 30) # delay if the response is too long
+    print("[Webhook]: reply", bot_reply[:100])
+
+    # delay the rest 
+    processing_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) - current_time
+    time.sleep(min(0, delay - processing_time))
+
+    # === Send reply back to user ===
+    send_facebook_message(sender_id, bot_reply)
+
+
+
+@app.route("/test")
+def test():
+    return "Flask is working!"
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
@@ -40,45 +106,9 @@ def webhook():
         data = request.get_json()
         for entry in data.get("entry", []):
             for message_event in entry.get("messaging", []):
-                sender_id = message_event["sender"]["id"]
                 if "message" in message_event and "text" in message_event["message"]:
-                    user_message = message_event["message"]["text"]
-                    print("[Webhook]: User ask", user_message)
-
-                    # === Get reply from Gemini ===
-                    bot_reply = get_gemini_response(user_message)
-                    print("[Webhook]: reply", bot_reply[:100])
-
-                    # === Send reply back to user ===
-                    send_facebook_message(sender_id, bot_reply)
+                    handle_user_message(message_event)
         return "ok", 200
-
-
-def get_gemini_response(user_message):
-    try:
-        response = chat.send_message(user_message)
-        return response.text
-    except Exception as e:
-        print("Gemini error:", e)
-        return "Xin lỗi, mình chưa thể trả lời câu hỏi này."
-
-
-def send_facebook_message(psid, message):
-    url = f"https://graph.facebook.com/{FACEBOOK_VERSION}/me/messages?access_token={PAGE_ACCESS_TOKEN}"
-    payload = {
-        "recipient": {"id": psid},
-        "message": {"text": message}
-    }
-    headers = {'Content-Type': 'application/json'}
-    try:
-        requests.post(url, json=payload, headers=headers)
-    except Exception as e:
-        print("Error sending message to FB:", e)
-
-
-@app.route("/test")
-def test():
-    return "Flask is working!"
 
 if __name__ == '__main__':
     app.run(port=3000)

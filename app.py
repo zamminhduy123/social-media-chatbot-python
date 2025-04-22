@@ -2,14 +2,13 @@ from flask import Flask, request
 import requests
 import os
 from dotenv import load_dotenv
-
-from gemini_prompt import MODEL_ID, PLACEHOLDER, get_chat_config
 from google import genai
 
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
-from collections import OrderedDict
+
+from SessionController import SessionController
 
 # === Load environment variables ===
 load_dotenv()
@@ -24,73 +23,15 @@ FACEBOOK_VERSION = 'v22.0'
 # Configure Gemini
 client = genai.Client(api_key=API_KEY)
 
-SESSION_CAPACITY = 100
-SESSION_TIME_THRESHOLD = 86400 # in second
-chat_sessions = OrderedDict()
-
 app = Flask(__name__)
 
+chat_sessions = SessionController()
+
 # === === === === === === === ACTUAL WORK FUNCTION
-def get_set_chat_sessions(sender_id):
-    
-    # create new chat session if sender is new.
-    if sender_id not in chat_sessions:
-        chat_sessions[sender_id] = {}
-        chat_sessions[sender_id]["chat"] = client.chats.create(
-            model=MODEL_ID,
-            config=get_chat_config(),
-        )
-
-    # update chat session time to now
-    current_time = datetime.now()
-    chat_sessions[sender_id]["last_date"] = current_time
-
-    # delete chat session if past certain threshold, user who triggers this is
-    # one lucky bastard.
-    sort_and_clean_chat_sessions(current_time)
-
-    return chat_sessions[sender_id]
-
-def sort_chat_sessions_by_date():
-    # sort newest to oldest
-    chat_sessions = OrderedDict(
-        sorted(
-            chat_sessions.items(),
-            key=lambda item: item[1]["last_date"],
-            reverse=False, # False: newest to oldest
-        )
-    )
-
-def sort_and_clean_chat_sessions(current_time=None):
-    current_time = current_time if current_time else datetime.now()
-
-    sort_chat_sessions_by_date()
-
-    # delete by capacity
-    if len(chat_sessions) > SESSION_CAPACITY:
-        n_session = len(chat_sessions) - SESSION_CAPACITY
-        for _ in range(n_session):
-            chat_sessions.popitem(last=True)
-
-    # delete by time
-    id_to_delete = set()
-    for sender_id in reversed(chat_sessions):
-        chat_session_date = chat_sessions[sender_id]["last_date"]
-        if current_time - chat_session_date < timedelta(SESSION_TIME_THRESHOLD):
-            id_to_delete.add(sender_id)
-        else:
-            # dict is ordered and sorted, break when there is no more session
-            # past the time threshold.
-            break
-    
-    for sender_id in id_to_delete:
-        chat_sessions.pop(sender_id)
-
-
 def get_gemini_response(user_message, sender_id):
     # actually generate response:
     try:
-        chat_session = get_set_chat_sessions(sender_id)
+        chat_session = chat_sessions.get_session(sender_id)
         chat = chat_session["chat"]
 
         response = chat.send_message(user_message)
@@ -148,7 +89,6 @@ def handle_user_message(message_event):
 
     # === Send reply back to user ===
     send_facebook_message(sender_id, bot_reply)
-
 
 @app.route("/test")
 def test():

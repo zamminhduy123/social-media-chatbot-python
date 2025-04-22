@@ -31,15 +31,15 @@ class SessionController:
         self._sort_chat_sessions_by_date()
 
         # delete by capacity
-        if len(self.session) > self.session_capacity:
-            n_session = len(self.session) - self.session_capacity
+        if len(self.sessions) > self.session_capacity:
+            n_session = len(self.sessions) - self.session_capacity
             for _ in range(n_session):
-                self.session.popitem(last=True)
+                self.sessions.popitem(last=True)
 
         # delete by time
         id_to_delete = set()
-        for sender_id in reversed(self.session):
-            chat_session_date = self.session[sender_id]["last_date"]
+        for sender_id in reversed(self.sessions):
+            chat_session_date = self.sessions[sender_id]["last_date"]
             if current_time - chat_session_date < timedelta(self.session_time_threshold):
                 id_to_delete.add(sender_id)
             else:

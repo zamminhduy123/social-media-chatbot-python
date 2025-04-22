@@ -21,7 +21,7 @@ class SessionController:
             sorted(
                 self.sessions.items(),
                 key=lambda item: item[1]["last_date"],
-                reverse=False, # False: newest to oldest
+                reverse=True, # True: newest to oldest
             )
         )
 
@@ -40,7 +40,7 @@ class SessionController:
         id_to_delete = set()
         for sender_id in reversed(self.sessions):
             chat_session_date = self.sessions[sender_id]["last_date"]
-            if current_time - chat_session_date < timedelta(self.session_time_threshold):
+            if current_time - chat_session_date >= timedelta(seconds=self.session_time_threshold):
                 id_to_delete.add(sender_id)
             else:
                 # dict is ordered and sorted, break when there is no more session

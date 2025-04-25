@@ -107,6 +107,10 @@ def webhook():
         data = request.get_json()
         for entry in data.get("entry", []):
             for message_event in entry.get("messaging", []):
+                messaging_platform = "facebook"
+                if "instagram" in entry.get("id", "").lower():
+                    messaging_platform = "instagram"
+                print("[Webhook]: Received message from", messaging_platform)
                 if "message" in message_event and "text" in message_event["message"]:
                     handle_user_message(message_event)
         return "ok", 200

@@ -1,6 +1,9 @@
-import os
-from google.genai import types
-
+from google.genai.types import (
+    GenerateContentConfig,
+    HarmBlockThreshold,
+    HarmCategory,
+    SafetySetting,
+)
 
 SYSTEM_PROMPT = ""
 with open("system_prompt.txt", "r", encoding="utf8") as fhandle:
@@ -13,14 +16,22 @@ TOP_K = 10
 CANDIDATE_COUNT = 1
 SEED = 5
 
-PLACEHOLDER = """Chào bạn! Mình là chatbot hỗ trợ của KNI Education, rất vui
-được hỗ trợ bạn. Bạn có câu hỏi nào về luyện thi TestAS hay tư vấn du học Đức
-không? Mình sẽ cố gắng trả lời một cách chi tiết và đầy đủ nhất có thể! 😊"""
+PLACEHOLDER = (
+    "Chào bạn! Mình là chatbot hỗ trợ của KNI Education, rất vui được hỗ trợ"
+    " bạn. Bạn có câu hỏi nào về luyện thi TestAS hay tư vấn du học Đức không?"
+    " Mình sẽ cố gắng trả lời một cách chi tiết và đầy đủ nhất có thể! 😊"
+)
+
+DEFAULT_RESPONSE = (
+    "Xin lỗi, mình chưa có thông tin về vấn đề này. Bạn vui lòng liên hệ trực"
+    " tiếp với KNI qua số điện thoại +84 091-839-1099 hoặc email nhat@kni.vn để"
+    " được hỗ trợ tốt nhất nhé! :blush:"
+)
 
 
 # === GenerateContentConfig ===
 def get_chat_config():
-    return types.GenerateContentConfig(
+    return GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
         temperature=TEMPERATURE,
         top_p=TOP_P,
@@ -28,21 +39,21 @@ def get_chat_config():
         candidate_count=CANDIDATE_COUNT,
         seed=SEED,
         safety_settings=[
-            types.SafetySetting(
-                category="HARM_CATEGORY_HARASSMENT",
-                threshold="BLOCK_LOW_AND_ABOVE",  # Block most
+            SafetySetting(
+                category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,  # Block most
             ),
-            types.SafetySetting(
-                category="HARM_CATEGORY_HATE_SPEECH",
-                threshold="BLOCK_LOW_AND_ABOVE",  # Block most
+            SafetySetting(
+                category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,  # Block most
             ),
-            types.SafetySetting(
-                category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                threshold="BLOCK_LOW_AND_ABOVE",  # Block most
+            SafetySetting(
+                category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,  # Block most
             ),
-            types.SafetySetting(
-                category="HARM_CATEGORY_DANGEROUS_CONTENT",
-                threshold="BLOCK_LOW_AND_ABOVE",  # Block most
+            SafetySetting(
+                category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,  # Block most
             ),
         ],
     )

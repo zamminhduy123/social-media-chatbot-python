@@ -3,12 +3,14 @@ import requests
 import os
 from dotenv import load_dotenv
 from google import genai
+from google.genai.chats import Chat
 
 import random
 from datetime import datetime
 import time
 
 from SessionController import SessionController
+from gemini_prompt import DEFAULT_RESPONSE
 
 # === Load environment variables ===
 load_dotenv()
@@ -25,20 +27,21 @@ client = genai.Client(api_key=API_KEY)
 
 app = Flask(__name__)
 
-chat_sessions = SessionController()
+chat_sessions = SessionController(client)
+
 
 # === === === === === === === ACTUAL WORK FUNCTION
-def get_gemini_response(user_message, sender_id):
+def get_gemini_response(user_message, sender_id) -> str:
     # actually generate response:
     try:
         chat_session = chat_sessions.get_session(sender_id)
-        chat = chat_session["chat"]
-
+        chat: Chat = chat_session["chat"] # type: ignore
         response = chat.send_message(user_message)
-        return response.text
+        return response.text # type: ignore
     except Exception as e:
         print("Gemini error:", e)
-        return "Xin lỗi, mình chưa có thông tin về vấn đề này. Bạn vui lòng liên hệ trực tiếp với KNI qua số điện thoại +84 091-839-1099 hoặc email nhat@kni.vn để được hỗ trợ tốt nhất nhé! :blush:"
+        return DEFAULT_RESPONSE
+
 
 def send_typing_indicator(psid):
     url = f"https://graph.facebook.com/v17.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"

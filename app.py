@@ -117,7 +117,7 @@ def handle_user_message(message_event, object_type):
 
     # delay the rest 
     processing_time = int(datetime.now().strftime("%Y%m%d%H%M%S")) - current_time
-    time.sleep(min(0, delay - processing_time))
+    time.sleep(max(0, delay - processing_time))
 
     # === Send reply back to user ===
     send_meta_message(sender_id, bot_reply, object_type)

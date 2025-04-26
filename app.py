@@ -146,7 +146,7 @@ def test():
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
-    print(request)
+    # print(request)
     if request.method == 'GET':
         # Webhook verification
         if request.args.get("hub.verify_token") == VERIFY_TOKEN:
@@ -155,6 +155,7 @@ def webhook():
 
     elif request.method == 'POST':
         data = request.get_json()
+        print("[Webhook]: Received data:", data)
         for entry in data.get("entry", []):
             for message_event in entry.get("messaging", []):
                 object_type = data.get("object", "")

@@ -9,7 +9,7 @@ class FeedbackController:
     def __init__(self, delta_time=30):
         creds_path = "/etc/secrets/rugged-filament-455205-m2-4e0d0bd3ebf9.json"
         sheet_id = "1NziTHdKPEoYNoEt9RgYl-j8SQKFSd9Jv706xA-Wb4mI"
-        worksheet_name = "Sheet1"
+        worksheet_name = "Feedbacks"
 
         self.sheet_controller = GoogleSheetController(creds_path, sheet_id, worksheet_name)
         

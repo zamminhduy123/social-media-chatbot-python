@@ -9,9 +9,9 @@ class FeedbackController:
     def __init__(self, delta_time=30):
         creds_path = "/etc/secrets/rugged-filament-455205-m2-4e0d0bd3ebf9.json"
         sheet_id = "1NziTHdKPEoYNoEt9RgYl-j8SQKFSd9Jv706xA-Wb4mI"
-        worksheet_name = "Feedbacks"
 
-        self.sheet_controller = GoogleSheetController(creds_path, sheet_id, worksheet_name)
+        self.sheet_controller_react = GoogleSheetController(creds_path, sheet_id, "Feedbacks")
+        self.sheet_controller_text = GoogleSheetController(creds_path, sheet_id, "Feedback-texts")
         
         self.batch = []
         self.lock = threading.Lock()
@@ -22,7 +22,16 @@ class FeedbackController:
 
     def log_feedback(self, platform, sender_id, message_id, bot_reply, reaction, emoji):
         feedback_entry = [platform, sender_id, message_id, bot_reply, reaction, emoji, datetime.now().isoformat()]
-        self.sheet_controller.append_row(feedback_entry)
+        self.sheet_controller_react.append_row(feedback_entry)
+
+    def log_feedback_text(self, platform, sender_id, feedback_text):
+        # Save feedback text as a special type of feedback
+        self.sheet_controller_text.append_row([
+            platform,
+            sender_id,
+            feedback_text,
+            datetime.now().isoformat()
+        ])
 
     def remove_feedback(self, message_id):
         row = self.sheet_controller.find_row_by_cell_value(message_id)

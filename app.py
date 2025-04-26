@@ -103,6 +103,13 @@ def handle_user_message(message_event, object_type):
     user_message = message_event["message"]["text"]
     print(f"[Webhook]: User [{sender_id}] ask", user_message, "at", current_time)
 
+    # handle user feedback
+    if user_message.lower().startswith("/feedback"):
+        feedback_text = user_message[len("/feedback"):].strip()
+        feedback_controller.log_feedback_text(object_type, sender_id, feedback_text)
+        send_meta_message(sender_id, "Cảm ơn bạn đã góp ý! 💬", object_type) # ✅ STOP, no Gemini reply
+        return
+    
     # send typing indicator
     send_typing_indicator(sender_id)
 

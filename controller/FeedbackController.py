@@ -24,7 +24,7 @@ class FeedbackController:
         feedback_entry = [sender_id, message_id, bot_reply, reaction, datetime.now().isoformat()]
         self.sheet_controller.append_row(feedback_entry)
 
-    def remove_feedback(self, sender_id, message_id):
+    def remove_feedback(self, message_id):
         row = self.sheet_controller.find_row_by_cell_value(message_id)
         if row:
             self.sheet_controller.delete_row(row)

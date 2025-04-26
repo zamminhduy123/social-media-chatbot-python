@@ -73,6 +73,23 @@ def send_meta_message(
     except Exception as e:
         print("Error sending message to FB:", e)
 
+def get_message_by_id(message_id, message_object=MESSAGE_OBJECT_TYPE["facebook_page"]):
+    url = f"{FACEBOOK_URL['message_detail'].format(message_id=message_id)}?fields=message&access_token={PAGE_ACCESS_TOKEN}"
+    if message_object == MESSAGE_OBJECT_TYPE["instagram"]:
+        url = f"{INSTA_URL['message_detail'].format(message_id=message_id)}?fields=message&access_token={INSTA_ACCESS_TOKEN}"
+    headers = {'Content-Type': 'application/json'}
+    try:
+        response = requests.get(url, headers=headers)
+        if response.ok:
+            data = response.json()
+            return data.get("message")
+        else:
+            print("Error fetching message:", response.text)
+            return ""
+    except Exception as e:
+        print("Exception fetching message:", e)
+        return ""
+
 # === === === === === === === ROUTING FUNCTION
 def handle_user_message(message_event, object_type):
     # get time 
@@ -102,19 +119,22 @@ def handle_user_message(message_event, object_type):
     # === Send reply back to user ===
     send_meta_message(sender_id, bot_reply, object_type)
 
-def handle_reaction_event(event):
+def handle_reaction_event(event, ):
     print("[Webhook]: Reaction event", event)
     sender_id = event["sender"]["id"]
     message_id = event["reaction"]["mid"]
     reaction_type = event["reaction"]["reaction"]
     action = event["reaction"]["action"]
 
+    # try get message by id
+    message = get_message_by_id(message_id)
+
     if action == "react":
         # Reaction added
-        feedback_controller.log_feedback(sender_id, message_id, reaction_type)
+        feedback_controller.log_feedback(sender_id, message_id, message, reaction_type)
     elif action == "unreact":
         # Reaction removed
-        feedback_controller.remove_feedback(sender_id, message_id)
+        feedback_controller.remove_feedback(message_id)
 
 @app.route("/test")
 def test():

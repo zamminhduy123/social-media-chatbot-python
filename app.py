@@ -9,7 +9,8 @@ import random
 from datetime import datetime
 import time
 
-from SessionController import SessionController
+from controller.SessionController import SessionController
+from controller.FeedbackController import FeedbackController
 from gemini_prompt import DEFAULT_RESPONSE
 
 # === Load environment variables ===
@@ -29,7 +30,7 @@ client = genai.Client(api_key=API_KEY)
 app = Flask(__name__)
 
 chat_sessions = SessionController(client)
-
+feedback_controller = FeedbackController(delta_time=0) # for testing, change to 30 for production
 
 # === === === === === === === ACTUAL WORK FUNCTION
 def get_gemini_response(user_message, sender_id) -> str:
@@ -101,6 +102,19 @@ def handle_user_message(message_event, object_type):
     # === Send reply back to user ===
     send_meta_message(sender_id, bot_reply, object_type)
 
+def handle_reaction_event(event):
+    sender_id = event["sender"]["id"]
+    message_id = event["reaction"]["mid"]
+    reaction_type = event["reaction"]["reaction"]
+    action = event["reaction"]["action"]
+
+    if action == "react":
+        # Reaction added
+        feedback_controller.log_feedback(sender_id, message_id, reaction_type)
+    elif action == "unreact":
+        # Reaction removed
+        feedback_controller.remove_feedback(sender_id, message_id)
+
 @app.route("/test")
 def test():
     return "Flask is working!"
@@ -122,6 +136,8 @@ def webhook():
                 print("[Webhook]: Received message from", object_type)
                 if "message" in message_event and "text" in message_event["message"]:
                     handle_user_message(message_event, object_type)
+                if "reaction" in message_event:
+                    handle_reaction_event(message_event)
         return "ok", 200
 
 if __name__ == '__main__':

@@ -37,3 +37,4 @@ ngrok.log
 # Ignore package management lock files (optional)
 poetry.lock
 Pipfile.lock
+credentials/

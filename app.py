@@ -16,10 +16,11 @@ from gemini_prompt import DEFAULT_RESPONSE
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
+INSTAGRAM_ID = os.getenv("INSTA_ID")
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 # === CONFIG ===
-FACEBOOK_VERSION = 'v22.0'
+from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL
 
 # === Configure Gemini ===
 # Configure Gemini
@@ -44,7 +45,7 @@ def get_gemini_response(user_message, sender_id) -> str:
 
 
 def send_typing_indicator(psid):
-    url = f"https://graph.facebook.com/v17.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+    url = f"{FACEBOOK_URL['message']}?access_token={PAGE_ACCESS_TOKEN}"
     payload = {
         "recipient": {"id": psid},
         "sender_action": "typing_on"
@@ -52,8 +53,15 @@ def send_typing_indicator(psid):
     headers = {'Content-Type': 'application/json'}
     requests.post(url, headers=headers, json=payload)
 
-def send_facebook_message(psid, message):
-    url = f"https://graph.facebook.com/{FACEBOOK_VERSION}/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+def send_meta_message(
+        psid, 
+        message, 
+        message_object=MESSAGE_OBJECT_TYPE["facebook_page"]
+):
+    url = f"{FACEBOOK_URL['message']}?access_token={PAGE_ACCESS_TOKEN}"
+    if (message_object == MESSAGE_OBJECT_TYPE["instagram"]):
+        url = f"{INSTA_URL['message']}?access_token={INSTAGRAM_ID}"
+                                                                            
     payload = {
         "recipient": {"id": psid},
         "message": {"text": message}
@@ -65,7 +73,7 @@ def send_facebook_message(psid, message):
         print("Error sending message to FB:", e)
 
 # === === === === === === === ROUTING FUNCTION
-def handle_user_message(message_event):
+def handle_user_message(message_event, object_type):
     # get time 
     current_time = int(datetime.now().strftime("%Y%m%d%H%M%S"))
 
@@ -91,7 +99,7 @@ def handle_user_message(message_event):
     time.sleep(min(0, delay - processing_time))
 
     # === Send reply back to user ===
-    send_facebook_message(sender_id, bot_reply)
+    send_meta_message(sender_id, bot_reply, object_type)
 
 @app.route("/test")
 def test():
@@ -113,7 +121,7 @@ def webhook():
                 object_type = data.get("object", "")
                 print("[Webhook]: Received message from", object_type)
                 if "message" in message_event and "text" in message_event["message"]:
-                    handle_user_message(message_event)
+                    handle_user_message(message_event, object_type)
         return "ok", 200
 
 if __name__ == '__main__':

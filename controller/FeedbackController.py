@@ -16,35 +16,31 @@ class FeedbackController:
         self.batch = []
         self.lock = threading.Lock()
         self.delta_time = delta_time
-        self.last_updated = time.time()
-        self.flush_thread = threading.Thread(target=self._auto_flush, daemon=True)
-        self.flush_thread.start()
+        # self.last_updated = time.time()
+        # self.flush_thread = threading.Thread(target=self._auto_flush, daemon=True)
+        # self.flush_thread.start()
 
     def log_feedback(self, sender_id, message_id, bot_reply, reaction):
         feedback_entry = [sender_id, message_id, bot_reply, reaction, datetime.now().isoformat()]
-        with self.lock:
-            self.batch.append(feedback_entry)
-            self.last_updated = time.time()
+        self.sheet_controller.append_row(feedback_entry)
 
     def remove_feedback(self, sender_id, message_id):
-        with self.lock:
-            self.batch = [
-                row for row in self.batch
-                if not (row[0] == sender_id and row[1] == message_id)
-            ]
-            self.last_updated = time.time()
+        row = self.sheet_controller.find_row_by_cell_value(message_id)
+        if row:
+            self.sheet_controller.delete_row(row)
 
-    def _flush(self):
-        with self.lock:
-            if self.batch:
-                for entry in self.batch:
-                    self.sheet_controller.append_row(entry)
-                self.batch.clear()
-                print(f"[FeedbackManager] Flushed feedback batch to Google Sheet.")
 
-    def _auto_flush(self):
-        while True:
-            time.sleep(5)
-            with self.lock:
-                if self.batch and (time.time() - self.last_updated > self.delta_time):
-                    self._flush()
+    # def _flush(self):
+    #     with self.lock:
+    #         if self.batch:
+    #             for entry in self.batch:
+    #                 self.sheet_controller.append_row(entry)
+    #             self.batch.clear()
+    #             print(f"[FeedbackManager] Flushed feedback batch to Google Sheet.")
+
+    # def _auto_flush(self):
+    #     while True:
+    #         time.sleep(5)
+    #         with self.lock:
+    #             if self.batch and (time.time() - self.last_updated > self.delta_time):
+    #                 self._flush()

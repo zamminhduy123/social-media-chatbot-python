@@ -20,8 +20,8 @@ class FeedbackController:
         # self.flush_thread = threading.Thread(target=self._auto_flush, daemon=True)
         # self.flush_thread.start()
 
-    def log_feedback(self, sender_id, message_id, bot_reply, reaction):
-        feedback_entry = [sender_id, message_id, bot_reply, reaction, datetime.now().isoformat()]
+    def log_feedback(self, platform, sender_id, message_id, bot_reply, reaction, emoji):
+        feedback_entry = [platform, sender_id, message_id, bot_reply, reaction, emoji, datetime.now().isoformat()]
         self.sheet_controller.append_row(feedback_entry)
 
     def remove_feedback(self, message_id):

@@ -122,19 +122,20 @@ def handle_user_message(message_event, object_type):
     # === Send reply back to user ===
     send_meta_message(sender_id, bot_reply, object_type)
 
-def handle_reaction_event(event, ):
+def handle_reaction_event(event, object_type):
     print("[Webhook]: Reaction event", event)
     sender_id = event["sender"]["id"]
     message_id = event["reaction"]["mid"]
     action = event["reaction"]["action"]
 
     # try get message by id
-    message = get_message_by_id(message_id)
+    message = get_message_by_id(message_id, object_type)
 
     if action == "react":
         reaction_type = event["reaction"]["reaction"]
+        emoji = event["reaction"]["emoji"]
         # Reaction added
-        feedback_controller.log_feedback(sender_id, message_id, message, reaction_type)
+        feedback_controller.log_feedback(object_type, sender_id, message_id, message, reaction_type, emoji)
     elif action == "unreact":
         # Reaction removed
         feedback_controller.remove_feedback(message_id)
@@ -161,7 +162,7 @@ def webhook():
                 if "message" in message_event and "text" in message_event["message"]:
                     handle_user_message(message_event, object_type)
                 if "reaction" in message_event:
-                    handle_reaction_event(message_event)
+                    handle_reaction_event(message_event, object_type)
         return "ok", 200
 
 if __name__ == '__main__':

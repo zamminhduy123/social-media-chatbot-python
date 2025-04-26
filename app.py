@@ -2,13 +2,16 @@ from flask import Flask, request
 import requests
 import os
 from dotenv import load_dotenv
-
-from gemini_prompt import MODEL_ID, PLACEHOLDER, get_chat_config
 from google import genai
+from google.genai.chats import Chat
 
 import random
 from datetime import datetime
 import time
+
+from SessionController import SessionController
+from gemini_prompt import DEFAULT_RESPONSE
+
 # === Load environment variables ===
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
@@ -22,21 +25,23 @@ FACEBOOK_VERSION = 'v22.0'
 # Configure Gemini
 client = genai.Client(api_key=API_KEY)
 
-chat = client.chats.create(
-    model=MODEL_ID,
-    config=get_chat_config(),
-)
-
 app = Flask(__name__)
 
+chat_sessions = SessionController(client)
+
+
 # === === === === === === === ACTUAL WORK FUNCTION
-def get_gemini_response(user_message):
+def get_gemini_response(user_message, sender_id) -> str:
+    # actually generate response:
     try:
+        chat_session = chat_sessions.get_session(sender_id)
+        chat: Chat = chat_session["chat"] # type: ignore
         response = chat.send_message(user_message)
-        return response.text
+        return response.text # type: ignore
     except Exception as e:
         print("Gemini error:", e)
-        return "Xin lỗi, mình chưa có thông tin về vấn đề này. Bạn vui lòng liên hệ trực tiếp với KNI qua số điện thoại +84 091-839-1099 hoặc email nhat@kni.vn để được hỗ trợ tốt nhất nhé! :blush:"
+        return DEFAULT_RESPONSE
+
 
 def send_typing_indicator(psid):
     url = f"https://graph.facebook.com/v17.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
@@ -77,7 +82,7 @@ def handle_user_message(message_event):
     print(f"[Webhook]: delay {delay} seconds")
 
     # === Get reply from Gemini ===
-    bot_reply = get_gemini_response(user_message)
+    bot_reply = get_gemini_response(user_message, sender_id)
     delay = max(delay, len(bot_reply) / 30) # delay if the response is too long
     print("[Webhook]: reply", bot_reply[:100])
 
@@ -87,8 +92,6 @@ def handle_user_message(message_event):
 
     # === Send reply back to user ===
     send_facebook_message(sender_id, bot_reply)
-
-
 
 @app.route("/test")
 def test():

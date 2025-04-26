@@ -45,8 +45,11 @@ def get_gemini_response(user_message, sender_id) -> str:
         return DEFAULT_RESPONSE
 
 
-def send_typing_indicator(psid):
-    url = f"{FACEBOOK_URL['message']}?access_token={PAGE_ACCESS_TOKEN}"
+def send_typing_indicator(psid, platform=MESSAGE_OBJECT_TYPE["facebook_page"]):
+    url = f"{FACEBOOK_URL['typing']}?access_token={PAGE_ACCESS_TOKEN}"
+    if (platform == MESSAGE_OBJECT_TYPE["instagram"]):
+        url = f"{INSTA_URL['typing']}?access_token={INSTA_ACCESS_TOKEN}"
+    
     payload = {
         "recipient": {"id": psid},
         "sender_action": "typing_on"
@@ -74,9 +77,9 @@ def send_meta_message(
         print("Error sending message to FB:", e)
 
 def get_message_by_id(message_id, message_object=MESSAGE_OBJECT_TYPE["facebook_page"]):
-    url = f"{FACEBOOK_URL['message_detail'].format(message_id=message_id)}?fields=message&access_token={PAGE_ACCESS_TOKEN}"
+    url = f"{FACEBOOK_URL['base']}/{message_id}?fields=message&access_token={PAGE_ACCESS_TOKEN}"
     if message_object == MESSAGE_OBJECT_TYPE["instagram"]:
-        url = f"{INSTA_URL['message_detail'].format(message_id=message_id)}?fields=message&access_token={INSTA_ACCESS_TOKEN}"
+        url = f"{INSTA_URL['base']}/{message_id}?fields=message&access_token={INSTA_ACCESS_TOKEN}"
     headers = {'Content-Type': 'application/json'}
     try:
         response = requests.get(url, headers=headers)

@@ -103,6 +103,7 @@ def handle_user_message(message_event, object_type):
     send_meta_message(sender_id, bot_reply, object_type)
 
 def handle_reaction_event(event):
+    print("[Webhook]: Reaction event", event)
     sender_id = event["sender"]["id"]
     message_id = event["reaction"]["mid"]
     reaction_type = event["reaction"]["reaction"]

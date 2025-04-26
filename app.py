@@ -16,7 +16,7 @@ from gemini_prompt import DEFAULT_RESPONSE
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
-INSTAGRAM_ID = os.getenv("INSTA_ID")
+INSTA_ACCESS_TOKEN = os.getenv("INSTA_ACCESS_TOKEN")
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 # === CONFIG ===
@@ -60,7 +60,7 @@ def send_meta_message(
 ):
     url = f"{FACEBOOK_URL['message']}?access_token={PAGE_ACCESS_TOKEN}"
     if (message_object == MESSAGE_OBJECT_TYPE["instagram"]):
-        url = f"{INSTA_URL['message']}?access_token={INSTAGRAM_ID}"
+        url = f"{INSTA_URL['message']}?access_token={INSTA_ACCESS_TOKEN}"
                                                                             
     payload = {
         "recipient": {"id": psid},

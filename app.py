@@ -126,13 +126,13 @@ def handle_reaction_event(event, ):
     print("[Webhook]: Reaction event", event)
     sender_id = event["sender"]["id"]
     message_id = event["reaction"]["mid"]
-    reaction_type = event["reaction"]["reaction"]
     action = event["reaction"]["action"]
 
     # try get message by id
     message = get_message_by_id(message_id)
 
     if action == "react":
+        reaction_type = event["reaction"]["reaction"]
         # Reaction added
         feedback_controller.log_feedback(sender_id, message_id, message, reaction_type)
     elif action == "unreact":

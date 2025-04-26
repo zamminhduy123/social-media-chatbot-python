@@ -3,7 +3,7 @@ import threading
 import time
 from datetime import datetime
 
-from GoogleSheetController import GoogleSheetController
+from .GoogleSheetController import GoogleSheetController
 
 class FeedbackController:
     def __init__(self, delta_time=30):

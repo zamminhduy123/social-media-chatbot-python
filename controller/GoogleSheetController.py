@@ -17,6 +17,13 @@ class GoogleSheetController:
             return None
         
     def append_row(self, row):
+        msg_id = row[2]
+        row_number = self.find_row_by_cell_value(msg_id) 
+        
+        if (row_number is not None):
+            self.update_row(row_number, row)
+            return
+        
         self.sheet.append_row(row)
 
     def update_row(self, row_number, new_row_values):

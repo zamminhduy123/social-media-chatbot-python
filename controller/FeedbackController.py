@@ -34,9 +34,9 @@ class FeedbackController:
         ])
 
     def remove_feedback(self, message_id):
-        row = self.sheet_controller.find_row_by_cell_value(message_id)
+        row = self.sheet_controller_react.find_row_by_cell_value(message_id)
         if row:
-            self.sheet_controller.delete_row(row)
+            self.sheet_controller_react.delete_row(row)
 
 
     # def _flush(self):

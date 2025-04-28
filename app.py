@@ -18,6 +18,8 @@ load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 INSTA_ACCESS_TOKEN = os.getenv("INSTA_ACCESS_TOKEN")
+PAGE_ID = os.getenv("PAGE_ID")
+INSTA_ID = os.getenv("INSTA_ID")
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 # === CONFIG ===
@@ -37,6 +39,8 @@ def get_gemini_response(user_message, sender_id) -> str:
     # actually generate response:
     try:
         chat_session = chat_sessions.get_session(sender_id)
+        if (chat_session == None):
+            return None
         chat: Chat = chat_session["chat"] # type: ignore
         response = chat.send_message(user_message)
         return response.text # type: ignore
@@ -92,8 +96,20 @@ def get_message_by_id(message_id, message_object=MESSAGE_OBJECT_TYPE["facebook_p
     except Exception as e:
         print("Exception fetching message:", e)
         return ""
+    
+def check_owner(object_type, sender_id):
+    if object_type == MESSAGE_OBJECT_TYPE["facebook_page"]:
+        return sender_id == PAGE_ID
+    elif object_type == MESSAGE_OBJECT_TYPE["instagram"]:
+        return sender_id == INSTA_ID
+    return False
 
 # === === === === === === === ROUTING FUNCTION
+def handle_user_feedback(sender_id, user_message, object_type):
+    feedback_text = user_message[len("/feedback"):].strip()
+    feedback_controller.log_feedback_text(object_type, sender_id, feedback_text)
+    send_meta_message(sender_id, "Cảm ơn bạn đã góp ý! 💬", object_type) # ✅ 
+
 def handle_user_message(message_event, object_type):
     # get time 
     current_time = int(datetime.now().strftime("%Y%m%d%H%M%S"))
@@ -105,9 +121,15 @@ def handle_user_message(message_event, object_type):
 
     # handle user feedback
     if user_message.lower().startswith("/feedback"):
-        feedback_text = user_message[len("/feedback"):].strip()
-        feedback_controller.log_feedback_text(object_type, sender_id, feedback_text)
-        send_meta_message(sender_id, "Cảm ơn bạn đã góp ý! 💬", object_type) # ✅ STOP, no Gemini reply
+        #STOP, no Gemini reply
+        handle_user_feedback(sender_id, user_message, object_type)
+        return
+    
+    # owner take over
+    if check_owner(object_type, sender_id):
+        recipient_id = message_event["messaging"]["recipient"]['id']
+        # suspen chat session
+        chat_sessions.suspend_session(recipient_id)
         return
     
     # send typing indicator
@@ -119,6 +141,9 @@ def handle_user_message(message_event, object_type):
 
     # === Get reply from Gemini ===
     bot_reply = get_gemini_response(user_message, sender_id)
+    if (bot_reply == None):
+        # Suspended, no response
+        return
     delay = max(delay, len(bot_reply) / 30) # delay if the response is too long
     print("[Webhook]: reply", bot_reply[:100])
 

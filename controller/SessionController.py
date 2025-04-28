@@ -9,11 +9,14 @@ from gemini_prompt import MODEL_ID, get_chat_config
 
 SESSION_CAPACITY = 100
 SESSION_TIME_THRESHOLD = 86400  # in second
+SUSPENSION_TIME_THRESHOLD = 30  # in second / change to 86400 for production
 
-
+class SuspenInfo(TypedDict):
+    suspended_time: datetime | None
 class ChatEntryDict(TypedDict):
     chat: Any | Chat
     last_date: datetime
+    suspended_info: SuspenInfo | None
 
 
 class SessionController:
@@ -75,6 +78,7 @@ class SessionController:
                 config=get_chat_config(),
             ),
             "last_date": datetime.now(),
+            "suspended_info": None,
         }
         return self.sessions[user_id]
 
@@ -96,6 +100,15 @@ class SessionController:
         # one lucky bastard.
         self._sort_and_clean_chat_sessions(current_time)
 
+        # check if the session is suspended
+        if (self.sessions[user_id]["suspended_info"] is not None):
+            # still suspended
+            if (self.sessions[user_id]["suspended_info"]["suspended_time"] > datetime.now()):
+                return None
+            else:
+                # unsuspend
+                self.sessions[user_id]["suspended_info"] = None
+
         return self.sessions.get(user_id)
 
     def delete_session(self, user_id):
@@ -106,3 +119,14 @@ class SessionController:
         """
         if user_id in self.sessions:
             self.sessions.pop(user_id)
+
+    def suspend_session(self, user_id):
+        """
+        Suspends the session for a user.
+        :param user_id: The ID of the user.
+        :return: None
+        """
+        if user_id in self.sessions:
+            self.sessions[user_id]["suspended_info"] = {
+                "suspended_time": datetime.now() + timedelta(seconds=SUSPENSION_TIME_THRESHOLD)
+            }

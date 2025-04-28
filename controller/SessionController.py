@@ -101,6 +101,7 @@ class SessionController:
         self._sort_and_clean_chat_sessions(current_time)
 
         # check if the session is suspended
+        print(self.sessions[user_id]["suspended_info"]["suspended_time"])
         if (self.sessions[user_id]["suspended_info"] is not None):
             # still suspended
             if (self.sessions[user_id]["suspended_info"]["suspended_time"] > datetime.now()):
@@ -127,6 +128,7 @@ class SessionController:
         :return: None
         """
         if user_id in self.sessions:
+            print("Suspending session for user:", user_id)
             self.sessions[user_id]["suspended_info"] = {
                 "suspended_time": datetime.now() + timedelta(seconds=SUSPENSION_TIME_THRESHOLD)
             }

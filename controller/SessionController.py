@@ -88,29 +88,31 @@ class SessionController:
         :param user_id: The ID of the user.
         :return: The session data or None if no session exists.
         """
-
+        print("[Session Controller] get session for user:", user_id)
         if user_id not in self.sessions:
-            self.create_session(user_id)
+            session = self.create_session(user_id)
+        else:
+            session = self.sessions.get(user_id)
 
         # update chat session time to now
         current_time = datetime.now()
-        self.sessions[user_id]["last_date"] = current_time
+        session["last_date"] = current_time
 
         # delete chat session if past certain threshold, user who triggers this is
         # one lucky bastard.
         self._sort_and_clean_chat_sessions(current_time)
 
         # check if the session is suspended
-        print("[Sesssion Controller] check suspension", self.sessions[user_id]["suspended_info"]["suspended_time"])
-        if (self.sessions[user_id]["suspended_info"] is not None):
+        print("[Sesssion Controller] check suspension", session[user_id]["suspended_info"]["suspended_time"])
+        if (session[user_id]["suspended_info"] is not None):
             # still suspended
-            if (self.sessions[user_id]["suspended_info"]["suspended_time"] > datetime.now()):
+            if (session[user_id]["suspended_info"]["suspended_time"] > datetime.now()):
                 return None
             else:
                 # unsuspend
-                self.sessions[user_id]["suspended_info"] = None
+                session[user_id]["suspended_info"] = None
 
-        return self.sessions.get(user_id)
+        return session
 
     def delete_session(self, user_id):
         """

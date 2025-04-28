@@ -12,7 +12,9 @@ class GoogleSheetController:
     def find_row_by_cell_value(self, cell_value):
         try:
             cell = self.sheet.find(str(cell_value))
-            return cell.row
+            if ("row" in cell._properties):
+                return cell.row
+            return None
         except gspread.exceptions.CellNotFound:
             return None
         

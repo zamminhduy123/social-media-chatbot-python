@@ -12,10 +12,9 @@ class GoogleSheetController:
     def find_row_by_cell_value(self, cell_value):
         try:
             cell = self.sheet.find(str(cell_value))
-            if (cell is not None):
-                return cell.row
-            return None
-        except gspread.exceptions.CellNotFound:
+            return cell.row
+        except Exception as e:
+            print(f"Unexpected error: {e}")
             return None
         
     def append_row(self, row):

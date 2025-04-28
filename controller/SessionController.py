@@ -101,7 +101,7 @@ class SessionController:
         self._sort_and_clean_chat_sessions(current_time)
 
         # check if the session is suspended
-        print(self.sessions[user_id]["suspended_info"]["suspended_time"])
+        print("[Sesssion Controller] check suspension", self.sessions[user_id]["suspended_info"]["suspended_time"])
         if (self.sessions[user_id]["suspended_info"] is not None):
             # still suspended
             if (self.sessions[user_id]["suspended_info"]["suspended_time"] > datetime.now()):

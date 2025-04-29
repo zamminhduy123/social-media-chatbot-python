@@ -35,7 +35,7 @@ class SessionController:
         self.session_time_threshold = session_time_threshold
 
     def _sort_chat_sessions_by_date(self):
-        print("[Session Controller] sort chat sessions by date")
+        # print("[Session Controller] sort chat sessions by date")
         # sort newest to oldest
         self.sessions = OrderedDict(
             sorted(
@@ -58,6 +58,7 @@ class SessionController:
                 self.sessions.popitem(last=True)
 
         # delete by time
+        print("[Session Controller] get delete", id_to_delete)
         id_to_delete = set()
         for sender_id in reversed(self.sessions):
             chat_session_date = self.sessions[sender_id]["last_date"]
@@ -69,7 +70,8 @@ class SessionController:
                 # dict is ordered and sorted, break when there is no more session
                 # past the time threshold.
                 break
-
+        
+        print("[Session Controller] delete chat sessions by time", id_to_delete)
         for sender_id in id_to_delete:
             self.delete_session(sender_id)
 
@@ -90,13 +92,13 @@ class SessionController:
         :param user_id: The ID of the user.
         :return: The session data or None if no session exists.
         """
-        print("[Session Controller] get session for user:", user_id)
+        # print("[Session Controller] get session for user:", user_id)
         if user_id not in self.sessions:
             session = self.create_session(user_id)
         else:
             session = self.sessions.get(user_id)
 
-        print("[Session Controller] session", session)
+        # print("[Session Controller] session", session)
 
         # update chat session time to now
         current_time = datetime.now()

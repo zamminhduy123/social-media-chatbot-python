@@ -58,7 +58,7 @@ class SessionController:
                 self.sessions.popitem(last=True)
 
         # delete by time
-        print("[Session Controller] get delete", id_to_delete)
+        print("[Session Controller] get delete", self.sessions)
         id_to_delete = set()
         for sender_id in reversed(self.sessions):
             chat_session_date = self.sessions[sender_id]["last_date"]

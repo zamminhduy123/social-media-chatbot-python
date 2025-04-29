@@ -97,6 +97,7 @@ class SessionController:
         is_suspended = id in self.suspended_sessions
         if (is_suspended):
             suspended_time = self.suspended_sessions[id]["suspended_time"]
+            print("Chat session suspended for user:", id, "until", suspended_time, "current time", datetime.now())
             if suspended_time > datetime.now():
                 return True
             else:

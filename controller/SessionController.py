@@ -75,6 +75,8 @@ class SessionController:
         for sender_id in id_to_delete:
             self.delete_session(sender_id)
 
+        print("[Session Controller] wtf")
+
     def create_session(self, user_id):
         self.sessions[user_id] = {
             "chat": self.client.chats.create(

@@ -138,7 +138,7 @@ class SessionController:
         :return: None
         """
         if user_id in self.sessions:
-            print("Suspending session for user:", user_id)
+            print("[Sesssion Controller] Suspending session for user:", user_id)
             self.sessions[user_id]["suspended_info"] = {
                 "suspended_time": datetime.now() + timedelta(seconds=SUSPENSION_TIME_THRESHOLD)
             }

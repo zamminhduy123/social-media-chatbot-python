@@ -46,7 +46,7 @@ class SessionController:
         )
 
     def _sort_and_clean_chat_sessions(self, current_time: datetime | None = None):
-        print("[Session Controller] ssort_and_clean_chat_sessions")
+        # print("[Session Controller] ssort_and_clean_chat_sessions")
         current_time = current_time if current_time else datetime.now()
 
         self._sort_chat_sessions_by_date()
@@ -58,7 +58,7 @@ class SessionController:
                 self.sessions.popitem(last=True)
 
         # delete by time
-        print("[Session Controller] get delete", self.sessions)
+        # print("[Session Controller] get delete", self.sessions)
         id_to_delete = set()
         for sender_id in reversed(self.sessions):
             chat_session_date = self.sessions[sender_id]["last_date"]
@@ -71,11 +71,11 @@ class SessionController:
                 # past the time threshold.
                 break
         
-        print("[Session Controller] delete chat sessions by time", id_to_delete)
+        # print("[Session Controller] delete chat sessions by time", id_to_delete)
         for sender_id in id_to_delete:
             self.delete_session(sender_id)
 
-        print("[Session Controller] wtf")
+        # print("[Session Controller] wtf")
 
     def create_session(self, user_id):
         self.sessions[user_id] = {
@@ -111,7 +111,7 @@ class SessionController:
         self._sort_and_clean_chat_sessions(current_time)
 
         # check if the session is suspended
-        print("[Sesssion Controller] check suspension", session["suspended_info"]["suspended_time"])
+        print("[Sesssion Controller] check suspension", session["suspended_info"])
         if (session["suspended_info"] is not None):
             # still suspended
             if (session["suspended_info"]["suspended_time"] > datetime.now()):

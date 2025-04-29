@@ -13,10 +13,10 @@ SUSPENSION_TIME_THRESHOLD = 30  # in second / change to 86400 for production
 
 class SuspenInfo(TypedDict):
     suspended_time: datetime | None
+
 class ChatEntryDict(TypedDict):
     chat: Any | Chat
     last_date: datetime
-    suspended_info: SuspenInfo | None
 
 
 class SessionController:
@@ -30,6 +30,7 @@ class SessionController:
         Initializes a new SessionController instance.
         """
         self.sessions: OrderedDict[type, ChatEntryDict] = OrderedDict()
+        self.suspended_sessions: OrderedDict[type, SuspenInfo] = OrderedDict()
         self.client = client
         self.session_capacity = session_capacity
         self.session_time_threshold = session_time_threshold
@@ -84,9 +85,25 @@ class SessionController:
                 config=get_chat_config(),
             ),
             "last_date": datetime.now(),
-            "suspended_info": None,
         }
         return self.sessions[user_id]
+
+    def is_chat_suspended(self, id):
+        """
+        Checks if the chat session is suspended.
+        :param id: The ID of the user.
+        :return: True if the chat session is suspended, False otherwise.
+        """
+        is_suspended = id in self.suspended_sessions
+        if (is_suspended):
+            suspended_time = self.suspended_sessions[id]["suspended_time"]
+            if suspended_time > datetime.now():
+                return True
+            else:
+                # unsuspend
+                self.suspended_sessions.pop(id)
+
+        return False
 
     def get_session(self, user_id):
         """
@@ -111,14 +128,9 @@ class SessionController:
         self._sort_and_clean_chat_sessions(current_time)
 
         # check if the session is suspended
-        print("[Sesssion Controller] check suspension", session["suspended_info"])
-        if (session["suspended_info"] is not None):
-            # still suspended
-            if (session["suspended_info"]["suspended_time"] > datetime.now()):
-                return None
-            else:
-                # unsuspend
-                session["suspended_info"] = None
+        print("[Sesssion Controller] check suspension")
+        if (self.is_chat_suspended(user_id)):
+            return None
 
         return session
 
@@ -137,8 +149,7 @@ class SessionController:
         :param user_id: The ID of the user.
         :return: None
         """
-        if user_id in self.sessions:
-            print("[Sesssion Controller] Suspending session for user:", user_id)
-            self.sessions[user_id]["suspended_info"] = {
-                "suspended_time": datetime.now() + timedelta(seconds=SUSPENSION_TIME_THRESHOLD)
-            }
+        print("[Sesssion Controller] Suspending session for user:", user_id)
+        self.suspended_sessions[user_id] = {
+            "suspended_time": datetime.now() + timedelta(seconds=SUSPENSION_TIME_THRESHOLD)
+        }

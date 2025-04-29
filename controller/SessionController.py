@@ -35,6 +35,7 @@ class SessionController:
         self.session_time_threshold = session_time_threshold
 
     def _sort_chat_sessions_by_date(self):
+        print("[Session Controller] sort chat sessions by date")
         # sort newest to oldest
         self.sessions = OrderedDict(
             sorted(
@@ -45,6 +46,7 @@ class SessionController:
         )
 
     def _sort_and_clean_chat_sessions(self, current_time: datetime | None = None):
+        print("[Session Controller] ssort_and_clean_chat_sessions")
         current_time = current_time if current_time else datetime.now()
 
         self._sort_chat_sessions_by_date()

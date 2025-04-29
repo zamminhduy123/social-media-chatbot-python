@@ -94,6 +94,8 @@ class SessionController:
         else:
             session = self.sessions.get(user_id)
 
+        print("[Session Controller] session", session)
+
         # update chat session time to now
         current_time = datetime.now()
         session["last_date"] = current_time

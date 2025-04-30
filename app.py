@@ -21,6 +21,7 @@ INSTA_ACCESS_TOKEN = os.getenv("INSTA_ACCESS_TOKEN")
 PAGE_ID = os.getenv("PAGE_ID")
 INSTA_ID = os.getenv("INSTA_ID")
 API_KEY = os.getenv("GEMINI_API_KEY")
+APP_ID = os.getenv("APP_ID")
 
 # === CONFIG ===
 from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL, RESUME_BOT_KEYWORD
@@ -104,6 +105,10 @@ def check_owner(object_type, sender_id):
         return sender_id == INSTA_ID
     return False
 
+def is_bot_message(app_id, sender_id, object_type):
+    if (check_owner(object_type, sender_id) and app_id == APP_ID):
+        return True
+    return False
 # === === === === === === === ROUTING FUNCTION
 def handle_user_feedback(sender_id, user_message, object_type):
     feedback_text = user_message[len("/feedback"):].strip()
@@ -202,6 +207,16 @@ def webhook():
         for entry in data.get("entry", []):
             for message_event in entry.get("messaging", []):
                 object_type = data.get("object", "")
+                
+                #check is bot message
+                if (is_bot_message(
+                    message_event.get("app_id", ""),
+                    message_event["sender"]["id"],
+                    object_type
+                ) and message_event.get("is_echo", False) == True):
+                    print("[Webhook]: Bot message, ignore")
+                    continue
+                
                 print("[Webhook]: Received message from", object_type)
                 if "message" in message_event and "text" in message_event["message"]:
                     handle_user_message(message_event, object_type)

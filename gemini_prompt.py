@@ -1,3 +1,4 @@
+import os
 from google.genai.types import (
     GenerateContentConfig,
     HarmBlockThreshold,
@@ -5,8 +6,10 @@ from google.genai.types import (
     SafetySetting,
 )
 
+BASE_DIR = os.path.dirname(__file__)
+
 SYSTEM_PROMPT = ""
-with open("system_prompt.txt", "r", encoding="utf8") as fhandle:
+with open(f"{BASE_DIR}/system_prompt.txt", "r", encoding="utf8") as fhandle:
     SYSTEM_PROMPT = fhandle.read()
 
 MODEL_ID = "gemini-2.0-flash"
@@ -38,6 +41,33 @@ def get_chat_config():
         top_k=TOP_K,
         candidate_count=CANDIDATE_COUNT,
         seed=SEED,
+        safety_settings=[
+            SafetySetting(
+                category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+                threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,  # Block most
+            ),
+            SafetySetting(
+                category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,  # Block most
+            ),
+            SafetySetting(
+                category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,  # Block most
+            ),
+            SafetySetting(
+                category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold=HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,  # Block most
+            ),
+        ],
+    )
+
+def get_evaluator_config():
+    return GenerateContentConfig(
+        temperature=TEMPERATURE,
+        top_p=1,
+        top_k=0,
+        candidate_count=CANDIDATE_COUNT,
+        seed=42,
         safety_settings=[
             SafetySetting(
                 category=HarmCategory.HARM_CATEGORY_HARASSMENT,

@@ -151,4 +151,7 @@ class SessionController:
         }
 
     def resume_session(self, user_id):
-        self.suspended_sessions.pop(id)
+        if (user_id not in self.suspended_sessions):
+            print("[Session Controller] No suspended session for user:", user_id)
+            return
+        self.suspended_sessions.pop(user_id)

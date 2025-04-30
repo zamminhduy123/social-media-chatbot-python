@@ -220,9 +220,9 @@ def webhook():
                     app_id,
                     sender_id,
                     object_type
-                ) and is_echo):
+                ) and is_echo == True):
                     print("[Webhook]: Bot message, ignore")
-                    continue
+                    return "ok", 200
 
                 if "message" in message_event and "text" in message_event["message"]:
                     handle_user_message(message_event, object_type)

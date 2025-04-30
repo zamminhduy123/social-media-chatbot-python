@@ -106,7 +106,7 @@ def check_owner(object_type, sender_id):
     return False
 
 def is_bot_message(app_id, sender_id, object_type):
-    print("[Webhook]: Check bot message", check_owner(object_type, sender_id), app_id == APP_ID)
+    print("[Webhook]: Check bot message", check_owner(object_type, sender_id), app_id, APP_ID, app_id == APP_ID)
     if (check_owner(object_type, sender_id) and app_id == APP_ID):
         return True
     return False

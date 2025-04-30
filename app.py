@@ -209,8 +209,9 @@ def webhook():
             for message_event in entry.get("messaging", []):
                 object_type = data.get("object", "")
                 sender_id = message_event["sender"]["id"]
-                app_id = message_event.get("app_id", "")
-                is_echo = message_event.get("is_echo", False)
+                message = message_event.get("message", {})
+                app_id = message.get("app_id", "")
+                is_echo = message.get("is_echo", False)
                 
                 print("[Webhook]: Received message from", sender_id, "app_id:", app_id, "is_echo:", is_echo, "in", object_type)
                 

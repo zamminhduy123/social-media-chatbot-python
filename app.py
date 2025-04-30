@@ -106,6 +106,7 @@ def check_owner(object_type, sender_id):
     return False
 
 def is_bot_message(app_id, sender_id, object_type):
+    print("[Webhook]: Check bot message", check_owner(object_type, sender_id), app_id == APP_ID)
     if (check_owner(object_type, sender_id) and app_id == APP_ID):
         return True
     return False
@@ -206,23 +207,22 @@ def webhook():
         print("[Webhook]: Received data:", data)
         for entry in data.get("entry", []):
             for message_event in entry.get("messaging", []):
-                object_type = data.get("object", "")
-                sender_id = message_event["sender"]["id"]
-                message = message_event.get("message", {})
-                app_id = message.get("app_id", "")
-                is_echo = message.get("is_echo", False)
-                
-                print("[Webhook]: Received message from", sender_id, "app_id:", app_id, "is_echo:", is_echo, "in", object_type, is_bot_message(app_id, sender_id, object_type))
-                
-                #check is bot message
-                if (is_bot_message(app_id, sender_id, object_type) and is_echo == True):
-                    print("[Webhook]: Bot message, ignore")
-                    return "ok", 200
-
-                if "message" in message_event and "text" in message_event["message"]:
-                    handle_user_message(message_event, object_type)
-                if "reaction" in message_event:
-                    handle_reaction_event(message_event, object_type)
+                if "message" in message_event:
+                    object_type = data.get("object", "")
+                    sender_id = message_event["sender"]["id"]
+                    message = message_event.get("message", {})
+                    app_id = message.get("app_id", "")
+                    is_echo = message.get("is_echo", False)
+                    
+                    print("[Webhook]: Received message from", sender_id, "app_id:", app_id, "is_echo:", is_echo, "in", object_type, is_bot_message(app_id, sender_id, object_type))
+                    
+                    #check is bot message
+                    if (is_bot_message(app_id, sender_id, object_type) and is_echo == True):
+                        print("[Webhook]: Bot message, ignore")
+                    elif "text" in message_event["message"]:
+                        handle_user_message(message_event, object_type)
+                    elif "reaction" in message_event:
+                        handle_reaction_event(message_event, object_type)
         return "ok", 200
 
 if __name__ == '__main__':

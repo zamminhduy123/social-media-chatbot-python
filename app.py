@@ -97,6 +97,7 @@ def get_message_by_id(message_id, message_object=MESSAGE_OBJECT_TYPE["facebook_p
         return ""
     
 def check_owner(object_type, sender_id):
+    print("[Webhook]: Check owner", sender_id)
     if object_type == MESSAGE_OBJECT_TYPE["facebook_page"]:
         return sender_id == PAGE_ID
     elif object_type == MESSAGE_OBJECT_TYPE["instagram"]:

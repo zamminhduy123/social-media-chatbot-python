@@ -23,7 +23,7 @@ INSTA_ID = os.getenv("INSTA_ID")
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 # === CONFIG ===
-from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL
+from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL, RESUME_BOT_KEYWORD
 
 # === Configure Gemini ===
 # Configure Gemini
@@ -47,7 +47,6 @@ def get_gemini_response(user_message, sender_id) -> str:
     except Exception as e:
         print("Gemini error:", e)
         return DEFAULT_RESPONSE
-
 
 def send_typing_indicator(psid, platform=MESSAGE_OBJECT_TYPE["facebook_page"]):
     url = f"{FACEBOOK_URL['typing']}?access_token={PAGE_ACCESS_TOKEN}"
@@ -131,6 +130,11 @@ def handle_user_message(message_event, object_type):
         # suspen chat session
         print("[Webhook]: Owner take over", recipient_id)
         chat_sessions.suspend_session(recipient_id)
+
+        if (RESUME_BOT_KEYWORD in user_message.lower()):
+            # resume chat session
+            print("[Webhook]: Owner resume chat session", recipient_id)
+            chat_sessions.resume_session(recipient_id)
         return
     
     # send typing indicator

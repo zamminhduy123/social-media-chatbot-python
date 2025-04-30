@@ -18,3 +18,5 @@ MESSAGE_OBJECT_TYPE = {
     'instagram': 'instagram',
     'facebook_page': 'page'
 }
+
+RESUME_BOT_KEYWORD = "!!!"

@@ -154,3 +154,6 @@ class SessionController:
         self.suspended_sessions[user_id] = {
             "suspended_time": datetime.now() + timedelta(seconds=SUSPENSION_TIME_THRESHOLD)
         }
+
+    def resume_session(self, user_id):
+        self.suspended_sessions.pop(id)

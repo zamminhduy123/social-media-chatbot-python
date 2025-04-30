@@ -125,6 +125,11 @@ def handle_user_message(message_event, object_type):
         handle_user_feedback(sender_id, user_message, object_type)
         return
     
+    if (chat_sessions.is_chat_suspended(sender_id)):
+        # suspended, no response
+        print("[Webhook]: Chat session suspended for user", sender_id)
+        return
+    
     # owner take over
     if check_owner(object_type, sender_id):
         recipient_id = message_event["recipient"]['id']

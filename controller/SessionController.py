@@ -128,11 +128,6 @@ class SessionController:
         # one lucky bastard.
         self._sort_and_clean_chat_sessions(current_time)
 
-        # check if the session is suspended
-        print("[Sesssion Controller] check suspension")
-        if (self.is_chat_suspended(user_id)):
-            return None
-
         return session
 
     def delete_session(self, user_id):

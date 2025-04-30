@@ -208,17 +208,21 @@ def webhook():
         for entry in data.get("entry", []):
             for message_event in entry.get("messaging", []):
                 object_type = data.get("object", "")
+                sender_id = message_event["sender"]["id"]
+                app_id = message_event.get("app_id", "")
+                is_echo = message_event.get("is_echo", False)
+                
+                print("[Webhook]: Received message from", sender_id, "app_id:", app_id, "is_echo:", is_echo, "in", object_type)
                 
                 #check is bot message
                 if (is_bot_message(
-                    message_event.get("app_id", ""),
-                    message_event["sender"]["id"],
+                    app_id,
+                    sender_id,
                     object_type
-                ) and message_event.get("is_echo", False) == True):
+                ) and is_echo):
                     print("[Webhook]: Bot message, ignore")
                     continue
-                
-                print("[Webhook]: Received message from", object_type)
+
                 if "message" in message_event and "text" in message_event["message"]:
                     handle_user_message(message_event, object_type)
                 if "reaction" in message_event:

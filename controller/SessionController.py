@@ -9,7 +9,7 @@ from gemini_prompt import MODEL_ID, get_chat_config
 
 SESSION_CAPACITY = 100
 SESSION_TIME_THRESHOLD = 86400  # in second
-SUSPENSION_TIME_THRESHOLD = 30  # in second / change to 86400 for production
+SUSPENSION_TIME_THRESHOLD = 86400  # in second / change to 86400 for production
 
 class SuspenInfo(TypedDict):
     suspended_time: datetime | None

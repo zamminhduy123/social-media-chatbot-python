@@ -129,7 +129,7 @@ def handle_user_message(message_event, object_type):
     if check_owner(object_type, sender_id):
         recipient_id = message_event["recipient"]['id']
         # suspen chat session
-        print("[Webhook]: Owner take over", recipient_id)
+        print("[Webhook]: Owner take over conversation", recipient_id)
         chat_sessions.suspend_session(recipient_id)
 
         if (RESUME_BOT_KEYWORD in user_message.lower()):

@@ -203,11 +203,11 @@ def webhook():
 
     elif request.method == 'POST':
         data = request.get_json()
+        object_type = data.get("object", "")
         print("[Webhook]: Received data:", data)
         for entry in data.get("entry", []):
             for message_event in entry.get("messaging", []):
                 if "message" in message_event:
-                    object_type = data.get("object", "")
                     sender_id = message_event["sender"]["id"]
                     message = message_event.get("message", {})
                     app_id = message.get("app_id", "")

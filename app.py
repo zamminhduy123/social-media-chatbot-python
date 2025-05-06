@@ -220,7 +220,7 @@ def webhook():
                         print("[Webhook]: Bot message, ignore")
                     elif "text" in message_event["message"]:
                         handle_user_message(message_event, object_type)
-                    elif "reaction" in message_event:
+                elif "reaction" in message_event:
                         handle_reaction_event(message_event, object_type)
         return "ok", 200
 

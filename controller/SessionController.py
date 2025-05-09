@@ -4,6 +4,7 @@ from typing import Any, Dict, TypedDict
 
 from google import genai
 from google.genai.chats import Chat
+import uuid
 
 from gemini_prompt import MODEL_ID, get_chat_config
 
@@ -34,6 +35,8 @@ class SessionController:
         self.client = client
         self.session_capacity = session_capacity
         self.session_time_threshold = session_time_threshold
+        self.debug_id = uuid.uuid4()
+        print(f"[SessionController] Instance created: {self.debug_id}")
 
     def _sort_chat_sessions_by_date(self):
         # print("[Session Controller] sort chat sessions by date")

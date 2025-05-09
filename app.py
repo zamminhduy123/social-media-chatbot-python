@@ -55,7 +55,7 @@ def get_message_from_id(message_id, object_type):
         return ""
 
 def get_gemini_response_with_context(user_message, context, sender_id)->str:
-    message = f'"""{context}"""\n\n{user_message}'
+    message = f'Context: """{context}"""\n\n{user_message}'
     return get_gemini_response(message, sender_id)
 
 def get_gemini_response(user_message, sender_id) -> str:
@@ -181,7 +181,8 @@ def handle_user_message(message_event, object_type):
             # handle reply if exist
         bot_reply = None
         reply = message_event.get("reply_to", None)
-        if reply:
+        print(f"[Webhook]: user reply_to: {reply} - type: {type(reply)}")
+        if reply != None:
             # reply to a message
             message_id = reply["mid"]
             reply_message_text = get_message_from_id(message_id, object_type)

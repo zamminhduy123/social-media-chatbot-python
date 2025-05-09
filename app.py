@@ -205,6 +205,8 @@ def webhook():
         data = request.get_json()
         object_type = data.get("object", "")
         print("[Webhook]: Received data:", data)
+        print(f"[GLOBAL] Chat sessions: {list(chat_sessions.sessions.keys())}")
+        print(f"[GLOBAL] Suspended Sessions: {list(chat_sessions.suspended_sessions.keys())}")
         for entry in data.get("entry", []):
             for message_event in entry.get("messaging", []):
                 if "message" in message_event:

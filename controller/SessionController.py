@@ -52,11 +52,14 @@ class SessionController:
 
         self._sort_chat_sessions_by_date()
 
+        deleted_sessions = {}
         # delete by capacity
         if len(self.sessions) > self.session_capacity:
             n_session = len(self.sessions) - self.session_capacity
             for _ in range(n_session):
-                self.sessions.popitem(last=True)
+                user_id, _ = self.sessions.popitem(last=True)
+                deleted_sessions[user_id] = "Deleted by capacity"
+
 
         # delete by time
         # print("[Session Controller] get delete", self.sessions)
@@ -67,16 +70,16 @@ class SessionController:
                 seconds=self.session_time_threshold
             ):
                 id_to_delete.add(sender_id)
+                deleted_sessions[sender_id] = "Deleted by date"
             else:
                 # dict is ordered and sorted, break when there is no more session
                 # past the time threshold.
                 break
-        
         # print("[Session Controller] delete chat sessions by time", id_to_delete)
         for sender_id in id_to_delete:
             self.delete_session(sender_id)
 
-        # print("[Session Controller] wtf")
+        print(f"[Session Controller] Sorted & Deleted: {deleted_sessions}")
 
     def create_session(self, user_id):
         self.sessions[user_id] = {
@@ -95,14 +98,20 @@ class SessionController:
         :return: True if the chat session is suspended, False otherwise.
         """
         is_suspended = id in self.suspended_sessions
+        print(f"[Session Controller] Attempting Suspend user {id} - {type(id)}")
+        print(f"[Session Controller] Chat sessions: {list(self.sessions.keys())}")
+        print(f"[Session Controller] Suspended users: {list(self.suspended_sessions.keys())}")
+
         if (is_suspended):
             suspended_time = self.suspended_sessions[id]["suspended_time"]
-            print("Chat session suspended for user:", id, "until", suspended_time, "current time", datetime.now())
+            print("[Session Controller] Chat session suspended for user:", id, "until", suspended_time, "current time", datetime.now())
             if suspended_time > datetime.now():
                 return True
             else:
                 # unsuspend
                 self.suspended_sessions.pop(id)
+        else:
+            print(f"[Session Controller] {id} not suspended - {type(id)}")
 
         return False
 
@@ -112,13 +121,13 @@ class SessionController:
         :param user_id: The ID of the user.
         :return: The session data or None if no session exists.
         """
-        # print("[Session Controller] get session for user:", user_id)
+        print(f"[Session Controller] type - {type(user_id)}")
         if user_id not in self.sessions:
+            print(f"[Session Controller] create new session for {user_id}")
             session = self.create_session(user_id)
         else:
+            print(f"[Session Controller] get session for {user_id}")
             session = self.sessions.get(user_id)
-
-        # print("[Session Controller] session", session)
 
         # update chat session time to now
         current_time = datetime.now()

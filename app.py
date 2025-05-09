@@ -180,7 +180,7 @@ def handle_user_message(message_event, object_type):
     def get_and_set_message():
             # handle reply if exist
         bot_reply = None
-        reply = message_event.get("reply_to", None)
+        reply = message_event["message"].get("reply_to", None)
         print(f"[Webhook]: user reply_to: {reply} - type: {type(reply)}")
         if reply != None:
             # reply to a message

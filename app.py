@@ -54,6 +54,10 @@ def get_message_from_id(message_id, object_type):
         print("Exception fetching message:", e)
         return ""
 
+def get_gemini_response_with_context(user_message, context, sender_id)->str:
+    message = f'"""{context}"""\n\n{user_message}'
+    return get_gemini_response(message, sender_id)
+
 def get_gemini_response(user_message, sender_id) -> str:
     # actually generate response:
     try:
@@ -175,15 +179,17 @@ def handle_user_message(message_event, object_type):
     delay_time = random.randint(1, 3)
     def get_and_set_message():
             # handle reply if exist
+        bot_reply = None
         reply = message_event.get("reply_to", None)
-        if (reply != None):
+        if reply:
             # reply to a message
             message_id = reply["mid"]
             reply_message_text = get_message_from_id(message_id, object_type)
             print("[Webhook]: Reply to message", reply_message_text)    
-
+            bot_reply = get_gemini_response_with_context(user_message, reply_message_text, sender_id)
         # === Get reply from Gemini ===
-        bot_reply = get_gemini_response(user_message, sender_id)
+        else:
+            bot_reply = get_gemini_response(user_message, sender_id)
         if (bot_reply == None):
             # Suspended, no response
             return

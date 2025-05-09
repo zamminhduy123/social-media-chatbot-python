@@ -36,7 +36,7 @@ class SessionController:
         self.session_capacity = session_capacity
         self.session_time_threshold = session_time_threshold
         self.debug_id = uuid.uuid4()
-        print(f"[SessionController] Instance created: {self.debug_id}")
+        print("[SessionController] __init__ called, debug_id =", self.debug_id, "time =", datetime.now())
 
     def _sort_chat_sessions_by_date(self):
         # print("[Session Controller] sort chat sessions by date")

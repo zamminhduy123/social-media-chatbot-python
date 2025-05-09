@@ -8,6 +8,7 @@ from google.genai.chats import Chat
 import random
 from datetime import datetime
 import time
+from utils import logging
 
 from controller.SessionController import SessionController
 from controller.FeedbackController import FeedbackController
@@ -191,6 +192,11 @@ def handle_reaction_event(event, object_type):
 @app.route("/test")
 def test():
     return "Flask is working!"
+
+@app.route("/htop/<int:interval>")
+def htop(interval:int):
+    log = logging.get_system_usage(interval)
+    return log
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():

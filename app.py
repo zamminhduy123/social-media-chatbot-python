@@ -37,6 +37,23 @@ chat_sessions = SessionController(client)
 feedback_controller = FeedbackController(delta_time=0) # for testing, change to 30 for production
 
 # === === === === === === === ACTUAL WORK FUNCTION
+def get_message_from_id(message_id, object_type):
+    url = f"{FACEBOOK_URL['base']}/{message_id}?fields=message&access_token={PAGE_ACCESS_TOKEN}"
+    if object_type == MESSAGE_OBJECT_TYPE["instagram"]:
+        url = f"{INSTA_URL['base']}/{message_id}?fields=message&access_token={INSTA_ACCESS_TOKEN}"
+    headers = {'Content-Type': 'application/json'}
+    try:
+        response = requests.get(url, headers=headers)
+        if response.ok:
+            data = response.json()
+            return data.get("message")
+        else:
+            print("Error fetching message:", response.text)
+            return ""
+    except Exception as e:
+        print("Exception fetching message:", e)
+        return ""
+
 def get_gemini_response(user_message, sender_id) -> str:
     # actually generate response:
     try:
@@ -157,9 +174,13 @@ def handle_user_message(message_event, object_type):
 
     delay_time = random.randint(1, 3)
     def get_and_set_message():
-        # random reponse delay
-        delay = random.randint(1, 3)
-        print(f"[Webhook]: delay {delay} seconds")
+            # handle reply if exist
+        reply = message_event.get("reply_to", None)
+        if (reply != None):
+            # reply to a message
+            message_id = reply["mid"]
+            reply_message_text = get_message_from_id(message_id, object_type)
+            print("[Webhook]: Reply to message", reply_message_text)    
 
         # === Get reply from Gemini ===
         bot_reply = get_gemini_response(user_message, sender_id)

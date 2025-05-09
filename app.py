@@ -224,6 +224,8 @@ def webhook():
                         handle_user_message(message_event, object_type)
                 elif "reaction" in message_event:
                         handle_reaction_event(message_event, object_type)
+        
+        print("[Webhook]: Finished processing")
         return "ok", 200
 
 if __name__ == '__main__':

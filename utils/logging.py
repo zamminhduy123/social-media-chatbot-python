@@ -1,17 +1,17 @@
-import psutil
+import os
 from datetime import datetime
 
+import psutil
 
-def get_system_usage(interval:float=1):
-    cpu = psutil.cpu_percent(interval=interval)
-    memory = psutil.virtual_memory()
+
+def get_system_usage(interval=1):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    log = (
-        f"{current_time}\n"
-        f"CPU Usage: {cpu}%\n"
-        f"Memory Usage: {memory.percent}% ({memory.used / (1024**3):.2f} GB used of {memory.total / (1024**3):.2f} GB)\n"
-    )
+    process = psutil.Process(os.getpid())
+    memory = process.memory_info().rss / 1024 / 1024
+    cpu = process.cpu_percent(interval=interval)
+
+    log = f"{current_time}\n" f"CPU Usage: {cpu}%\n" f"Memory Usage: {memory:.2f} MB\n"
 
     log += "-" * 20
     return log

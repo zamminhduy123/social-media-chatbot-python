@@ -8,7 +8,7 @@ from google.genai.chats import Chat
 import random
 from datetime import datetime
 import time
-from utils import logging
+from utils import logging, thread_utils
 
 from controller.SessionController import SessionController
 from controller.FeedbackController import FeedbackController
@@ -70,7 +70,10 @@ def send_meta_message(
     url = f"{FACEBOOK_URL['message']}?access_token={PAGE_ACCESS_TOKEN}"
     if (message_object == MESSAGE_OBJECT_TYPE["instagram"]):
         url = f"{INSTA_URL['message']}?access_token={INSTA_ACCESS_TOKEN}"
-                                                                            
+
+    if len(message) > 2000:
+          message = message[:2000]
+
     payload = {
         "recipient": {"id": psid},
         "message": {"text": message}
@@ -152,24 +155,23 @@ def handle_user_message(message_event, object_type):
     # send typing indicator
     send_typing_indicator(sender_id)
 
-    # random reponse delay
-    delay = random.randint(1, 3)
-    print(f"[Webhook]: delay {delay} seconds")
+    delay_time = random.randint(1, 3)
+    def get_and_set_message():
+        # random reponse delay
+        delay = random.randint(1, 3)
+        print(f"[Webhook]: delay {delay} seconds")
 
-    # === Get reply from Gemini ===
-    bot_reply = get_gemini_response(user_message, sender_id)
-    if (bot_reply == None):
-        # Suspended, no response
-        return
-    delay = max(delay, len(bot_reply) / 30) # delay if the response is too long
-    print("[Webhook]: reply", bot_reply[:100])
+        # === Get reply from Gemini ===
+        bot_reply = get_gemini_response(user_message, sender_id)
+        if (bot_reply == None):
+            # Suspended, no response
+            return
+        print("[Webhook]: reply", bot_reply[:100])
 
-    # delay the rest 
-    processing_time = int(datetime.now().strftime("%Y%m%d%H%M%S")) - current_time
-    time.sleep(max(0, delay - processing_time))
+        send_meta_message(sender_id, bot_reply, object_type)
 
-    # === Send reply back to user ===
-    send_meta_message(sender_id, bot_reply, object_type)
+    print(f"[Webhook]: Delay time: {delay_time} seconds")
+    thread_utils.delayed_call(delay_time, get_and_set_message)
 
 def handle_reaction_event(event, object_type):
     print("[Webhook]: Reaction event", event)

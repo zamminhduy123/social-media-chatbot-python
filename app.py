@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai.chats import Chat
-
+import json
 import random
 from datetime import datetime
 import time
@@ -25,7 +25,7 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 APP_ID = os.getenv("APP_ID")
 
 # === CONFIG ===
-from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL, RESUME_BOT_KEYWORD
+from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL, RESUME_BOT_KEYWORD, NUM_MESSAGE_CONTEXT
 
 # === Configure Gemini ===
 # Configure Gemini
@@ -121,7 +121,86 @@ def get_message_by_id(message_id, message_object=MESSAGE_OBJECT_TYPE["facebook_p
     except Exception as e:
         print("Exception fetching message:", e)
         return ""
+
+def get_conversation_messages_by_user_id(user_id):
+    """
+    Get all messages between the page and a specific user_id (PSID).
+    """
+    url = f"{FACEBOOK_URL['conversation_message']}?fields=participants&access_token={PAGE_ACCESS_TOKEN}"
+    try:
+        response = requests.get(url)
+        if response.ok:
+            conversations = response.json().get("data", [])
+            for convo in conversations:
+                participants = convo.get("participants", {}).get("data", [])
+                participant_ids = [p["id"] for p in participants]
+                if user_id in participant_ids:
+                    convo_id = convo["id"]
+                    # Found the conversation with this user
+                    messages_url = f"{FACEBOOK_URL['base']}/{convo_id}/messages?access_token={PAGE_ACCESS_TOKEN}"
+                    msg_response = requests.get(messages_url)
+                    if msg_response.ok:
+                        return msg_response.json().get("data", [])
+                    else:
+                        print("rror fetching messages:", msg_response.text)
+                        return []
+        else:
+            print("Error fetching conversations:", response.text)
+            return []
+    except Exception as e:
+        print("Exception during conversation fetch:", e)
+        return []
+
+def batch_get_messages_by_ids(message_ids, object_type=MESSAGE_OBJECT_TYPE["facebook_page"]):
+    batch = []
+    access_token = PAGE_ACCESS_TOKEN if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] else INSTA_ACCESS_TOKEN
+
+    for msg_id in message_ids:
+        batch.append({
+            "method": "GET",
+            "relative_url": f"{msg_id}?fields=message"
+        })
+
+    url = FACEBOOK_URL['base'] if (object_type == MESSAGE_OBJECT_TYPE["facebook_page"]) else INSTA_URL['base']
+    headers = {'Content-Type': 'application/json'}
+    payload = {
+        "access_token": access_token,
+        "batch": batch
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.ok:
+            results = response.json()
+            messages = []
+            for item in results:
+                body = json.loads(item.get("body", "{}"))
+                messages.append(body.get("message", ""))
+            return messages
+        else:
+            print("Batch fetch error:", response.text)
+            return []
+    except Exception as e:
+        print("Exception during batch message fetch:", e)
+        return []
+
+def get_new_conversation_context(sender_id, object_type):
+    """
+    Get the context of a new conversation with a user.
+    """
+    # Get all messages between the page and the user
+    messages = get_conversation_messages_by_user_id(sender_id)
+    if not messages:
+        return ""
+
+    last_5_messages = messages[-NUM_MESSAGE_CONTEXT:]
+    message_ids = [msg["id"] for msg in last_5_messages]
     
+    # Batch fetch the messages by IDs
+    batch_messages = batch_get_messages_by_ids(message_ids, object_type)
+    
+    return batch_messages
+
 def check_owner(object_type, sender_id):
     print("[Webhook]: Check owner", sender_id)
     if object_type == MESSAGE_OBJECT_TYPE["facebook_page"]:
@@ -182,15 +261,22 @@ def handle_user_message(message_event, object_type):
         bot_reply = None
         reply = message_event["message"].get("reply_to", None)
         print(f"[Webhook]: user reply_to: {reply} - type: {type(reply)}")
+        # === Get reply from Gemini ===
         if reply != None:
             # reply to a message
             message_id = reply["mid"]
             reply_message_text = get_message_from_id(message_id, object_type)
             print("[Webhook]: Reply to message", reply_message_text)    
             bot_reply = get_gemini_response_with_context(user_message, reply_message_text, sender_id)
-        # === Get reply from Gemini ===
         else:
+            is_new_session = chat_sessions.is_session_exist(sender_id)
+            if (not is_new_session):
+                # Get context for new session
+                context_msgs = get_new_conversation_context(sender_id, object_type)
+                print("[Webhook]: New session context", context_msgs)
+
             bot_reply = get_gemini_response(user_message, sender_id)
+        
         if (bot_reply == None):
             # Suspended, no response
             return
@@ -199,7 +285,7 @@ def handle_user_message(message_event, object_type):
         send_meta_message(sender_id, bot_reply, object_type)
 
     print(f"[Webhook]: Delay time: {delay_time} seconds")
-    thread_utils.delayed_call(delay_time, get_and_set_message)
+    thread_utils.delayed_call(0, get_and_set_message) # 0 for testing, change to delay_time for production
 
 def handle_reaction_event(event, object_type):
     print("[Webhook]: Reaction event", event)

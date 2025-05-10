@@ -118,6 +118,14 @@ class SessionController:
 
         return False
 
+    def is_session_exist(self, user_id):
+        """
+        Checks if a session exists for a user.
+        :param user_id: The ID of the user.
+        :return: True if the session exists, False otherwise.
+        """
+        return user_id in self.sessions
+
     def get_session(self, user_id):
         """
         Retrieves the session for a user.
@@ -125,12 +133,12 @@ class SessionController:
         :return: The session data or None if no session exists.
         """
         print(f"[Session Controller] type - {type(user_id)}")
-        if user_id not in self.sessions:
-            print(f"[Session Controller] create new session for {user_id}")
-            session = self.create_session(user_id)
-        else:
+        if self.is_session_exist(user_id):
             print(f"[Session Controller] get session for {user_id}")
             session = self.sessions.get(user_id)
+        else:
+            print(f"[Session Controller] create new session for {user_id}")
+            session = self.create_session(user_id)
 
         # update chat session time to now
         current_time = datetime.now()

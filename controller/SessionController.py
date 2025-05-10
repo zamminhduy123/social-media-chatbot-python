@@ -38,6 +38,11 @@ class SessionController:
         self.debug_id = uuid.uuid4()
         print("[SessionController] __init__ called, debug_id =", self.debug_id, "time =", datetime.now())
 
+    def hard_reset(self):
+        print("[SessionController] hard_reset called, debug_id =", self.debug_id, "time =", datetime.now())
+        self.sessions = OrderedDict()
+        self.suspended_sessions = OrderedDict()
+
     def _sort_chat_sessions_by_date(self):
         # print("[Session Controller] sort chat sessions by date")
         # sort newest to oldest

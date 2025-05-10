@@ -191,6 +191,12 @@ def htop(interval:int):
     log = logging.get_system_usage(interval)
     return log
 
+@app.route("/reset_session")
+def reset():
+    # Reset all sessions
+    chat_sessions.hard_reset()
+    return "Reset all sessions"
+
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     # print(request)

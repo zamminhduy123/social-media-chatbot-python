@@ -149,7 +149,7 @@ def handle_user_message(message_event, object_type):
                 bot_reply = get_gemini_response(user_message, sender_id)
             else:
                 # Get context for new session
-                context = "\n".join([msg["message"] for msg in context_msgs])
+                context = "\n".join(context_msgs)
                 bot_reply = get_gemini_response_with_context(user_message, context, sender_id)
         else:
             bot_reply = get_gemini_response(user_message, sender_id)

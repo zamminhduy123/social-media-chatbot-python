@@ -65,7 +65,7 @@ def get_new_conversation_context(sender_id, object_type):
     if not messages:
         return ""
 
-    last_5_messages = messages[-NUM_MESSAGE_CONTEXT:]
+    last_5_messages = messages[NUM_MESSAGE_CONTEXT:]
     message_ids = [msg["id"] for msg in last_5_messages]
     
     # Batch fetch the messages by IDs

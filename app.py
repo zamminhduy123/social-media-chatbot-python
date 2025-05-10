@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai.chats import Chat
-
+import json
 import random
 from datetime import datetime
 import time
@@ -13,6 +13,8 @@ from utils import logging, thread_utils
 from controller.SessionController import SessionController
 from controller.FeedbackController import FeedbackController
 from gemini_prompt import DEFAULT_RESPONSE
+
+from api import meta as meta_api
 
 # === Load environment variables ===
 load_dotenv()
@@ -25,7 +27,7 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 APP_ID = os.getenv("APP_ID")
 
 # === CONFIG ===
-from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL, RESUME_BOT_KEYWORD
+from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL, RESUME_BOT_KEYWORD, NUM_MESSAGE_CONTEXT
 
 # === Configure Gemini ===
 # Configure Gemini
@@ -37,23 +39,6 @@ chat_sessions = SessionController(client)
 feedback_controller = FeedbackController(delta_time=0) # for testing, change to 30 for production
 
 # === === === === === === === ACTUAL WORK FUNCTION
-def get_message_from_id(message_id, object_type):
-    url = f"{FACEBOOK_URL['base']}/{message_id}?fields=message&access_token={PAGE_ACCESS_TOKEN}"
-    if object_type == MESSAGE_OBJECT_TYPE["instagram"]:
-        url = f"{INSTA_URL['base']}/{message_id}?fields=message&access_token={INSTA_ACCESS_TOKEN}"
-    headers = {'Content-Type': 'application/json'}
-    try:
-        response = requests.get(url, headers=headers)
-        if response.ok:
-            data = response.json()
-            return data.get("message")
-        else:
-            print("Error fetching message:", response.text)
-            return ""
-    except Exception as e:
-        print("Exception fetching message:", e)
-        return ""
-
 def get_gemini_response_with_context(user_message, context, sender_id)->str:
     message = f'Context: """{context}"""\n\n{user_message}'
     return get_gemini_response(message, sender_id)
@@ -71,57 +56,23 @@ def get_gemini_response(user_message, sender_id) -> str:
         print("Gemini error:", e)
         return DEFAULT_RESPONSE
 
-def send_typing_indicator(psid, platform=MESSAGE_OBJECT_TYPE["facebook_page"]):
-    url = f"{FACEBOOK_URL['typing']}?access_token={PAGE_ACCESS_TOKEN}"
-    if (platform == MESSAGE_OBJECT_TYPE["instagram"]):
-        url = f"{INSTA_URL['typing']}?access_token={INSTA_ACCESS_TOKEN}"
-    
-    payload = {
-        "recipient": {"id": psid},
-        "sender_action": "typing_on"
-    }
-    headers = {'Content-Type': 'application/json'}
-    requests.post(url, headers=headers, json=payload)
-
-def send_meta_message(
-        psid, 
-        message, 
-        message_object=MESSAGE_OBJECT_TYPE["facebook_page"]
-):
-    url = f"{FACEBOOK_URL['message']}?access_token={PAGE_ACCESS_TOKEN}"
-    if (message_object == MESSAGE_OBJECT_TYPE["instagram"]):
-        url = f"{INSTA_URL['message']}?access_token={INSTA_ACCESS_TOKEN}"
-
-    if len(message) > 2000:
-          message = message[:2000]
-
-    payload = {
-        "recipient": {"id": psid},
-        "message": {"text": message}
-    }
-    headers = {'Content-Type': 'application/json'}
-    try:
-        requests.post(url, json=payload, headers=headers)
-    except Exception as e:
-        print("Error sending message to FB:", e)
-
-def get_message_by_id(message_id, message_object=MESSAGE_OBJECT_TYPE["facebook_page"]):
-    url = f"{FACEBOOK_URL['base']}/{message_id}?fields=message&access_token={PAGE_ACCESS_TOKEN}"
-    if message_object == MESSAGE_OBJECT_TYPE["instagram"]:
-        url = f"{INSTA_URL['base']}/{message_id}?fields=message&access_token={INSTA_ACCESS_TOKEN}"
-    headers = {'Content-Type': 'application/json'}
-    try:
-        response = requests.get(url, headers=headers)
-        if response.ok:
-            data = response.json()
-            return data.get("message")
-        else:
-            print("Error fetching message:", response.text)
-            return ""
-    except Exception as e:
-        print("Exception fetching message:", e)
+def get_new_conversation_context(sender_id, object_type):
+    """
+    Get the context of a new conversation with a user.
+    """
+    # Get all messages between the page and the user
+    messages = meta_api.get_conversation_messages_by_user_id(sender_id)
+    if not messages:
         return ""
+
+    last_5_messages = messages[NUM_MESSAGE_CONTEXT:]
+    message_ids = [msg["id"] for msg in last_5_messages]
     
+    # Batch fetch the messages by IDs
+    batch_messages = meta_api.batch_get_messages_by_ids(message_ids, object_type)
+    
+    return batch_messages
+
 def check_owner(object_type, sender_id):
     print("[Webhook]: Check owner", sender_id)
     if object_type == MESSAGE_OBJECT_TYPE["facebook_page"]:
@@ -138,7 +89,7 @@ def is_bot_message(app_id, sender_id, object_type):
 def handle_user_feedback(sender_id, user_message, object_type):
     feedback_text = user_message[len("/feedback"):].strip()
     feedback_controller.log_feedback_text(object_type, sender_id, feedback_text)
-    send_meta_message(sender_id, "Cảm ơn bạn đã góp ý! 💬", object_type) # ✅ 
+    meta_api.send_meta_message(sender_id, "Cảm ơn bạn đã góp ý! 💬", object_type) # ✅ 
 
 def handle_user_message(message_event, object_type):
     # get time 
@@ -174,7 +125,7 @@ def handle_user_message(message_event, object_type):
         return
     
     # send typing indicator
-    send_typing_indicator(sender_id)
+    meta_api.send_typing_indicator(sender_id)
 
     delay_time = random.randint(1, 3)
     def get_and_set_message():
@@ -182,24 +133,36 @@ def handle_user_message(message_event, object_type):
         bot_reply = None
         reply = message_event["message"].get("reply_to", None)
         print(f"[Webhook]: user reply_to: {reply} - type: {type(reply)}")
+        # === Get reply from Gemini ===
         if reply != None:
             # reply to a message
             message_id = reply["mid"]
-            reply_message_text = get_message_from_id(message_id, object_type)
+            reply_message_text = meta_api.get_message_by_id(message_id, object_type)
             print("[Webhook]: Reply to message", reply_message_text)    
             bot_reply = get_gemini_response_with_context(user_message, reply_message_text, sender_id)
-        # === Get reply from Gemini ===
+        elif not chat_sessions.is_session_exist(sender_id):
+            # Get context for new session
+            context_msgs = get_new_conversation_context(sender_id, object_type)
+            print("[Webhook]: New conversation context", len(context_msgs))
+
+            if context_msgs == None:
+                bot_reply = get_gemini_response(user_message, sender_id)
+            else:
+                # Get context for new session
+                context = "\n".join(context_msgs)
+                bot_reply = get_gemini_response_with_context(user_message, context, sender_id)
         else:
             bot_reply = get_gemini_response(user_message, sender_id)
+        
         if (bot_reply == None):
             # Suspended, no response
             return
         print("[Webhook]: reply", bot_reply[:100])
 
-        send_meta_message(sender_id, bot_reply, object_type)
+        meta_api.send_meta_message(sender_id, bot_reply, object_type)
 
     print(f"[Webhook]: Delay time: {delay_time} seconds")
-    thread_utils.delayed_call(delay_time, get_and_set_message)
+    thread_utils.delayed_call(0, get_and_set_message) # 0 for testing, change to delay_time for production
 
 def handle_reaction_event(event, object_type):
     print("[Webhook]: Reaction event", event)
@@ -208,7 +171,7 @@ def handle_reaction_event(event, object_type):
     action = event["reaction"]["action"]
 
     # try get message by id
-    message = get_message_by_id(message_id, object_type)
+    message = meta_api.get_message_by_id(message_id, object_type)
 
     if action == "react":
         reaction_type = event["reaction"]["reaction"]
@@ -227,6 +190,12 @@ def test():
 def htop(interval:int):
     log = logging.get_system_usage(interval)
     return log
+
+@app.route("/reset_session")
+def reset():
+    # Reset all sessions
+    chat_sessions.hard_reset()
+    return "Reset all sessions"
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():

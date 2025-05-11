@@ -97,6 +97,42 @@ def batch_get_messages_by_ids(message_ids, object_type=MESSAGE_OBJECT_TYPE["face
         return []
 
 
+def batch_get_messages_by_ids_v2(message_ids, object_type=MESSAGE_OBJECT_TYPE["facebook_page"]):
+    batch = []
+    access_token = PAGE_ACCESS_TOKEN if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] else INSTA_ACCESS_TOKEN
+
+    for msg_id in message_ids:
+        batch.append({
+            "method": "GET",
+            "relative_url": f"{msg_id}?fields=message,from"
+        })
+
+    url = FACEBOOK_URL['base'] if (object_type == MESSAGE_OBJECT_TYPE["facebook_page"]) else INSTA_URL['base']
+    headers = {'Content-Type': 'application/json'}
+    payload = {
+        "access_token": access_token,
+        "batch": batch
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        if response.ok:
+            results = response.json()
+            messages = []
+            for item in results:
+                body: dict = json.loads(item.get("body", "{}"))
+                sender_id = body.get("from", {}).get("id", None)
+                message = body.get("message", "")
+                messages.append((sender_id, message))
+            return messages
+        else:
+            print("Batch fetch error:", response.text)
+            return []
+    except Exception as e:
+        print("Exception during batch message fetch:", e)
+        return []
+
+
 def send_meta_message(
         psid, 
         message, 

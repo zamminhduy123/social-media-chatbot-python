@@ -1,20 +1,20 @@
-from flask import Flask, request
-import requests
 import os
-from dotenv import load_dotenv
-from google import genai
-from google.genai.chats import Chat
-import json
 import random
 from datetime import datetime
-import time
-from utils import logging, thread_utils
+from typing import Dict, List
 
-from controller.SessionController import SessionController
-from controller.FeedbackController import FeedbackController
-from gemini_prompt import DEFAULT_RESPONSE
+from dotenv import load_dotenv
+from flask import Flask, render_template_string, request
+from google import genai
+from google.genai import types as genai_types
+from google.genai.chats import Chat
 
 from api import meta as meta_api
+from controller.FeedbackController import FeedbackController
+from controller.SessionController import SessionController
+from controller.utils.chat import convert_to_gemini_chat_history
+from gemini_prompt import DEFAULT_RESPONSE, SYSTEM_PROMPT
+from utils import logging, thread_utils
 
 # === Load environment variables ===
 load_dotenv()
@@ -27,49 +27,96 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 APP_ID = os.getenv("APP_ID")
 
 # === CONFIG ===
-from constant import MESSAGE_OBJECT_TYPE, FACEBOOK_URL, INSTA_URL, RESUME_BOT_KEYWORD, NUM_MESSAGE_CONTEXT
+from constant import (
+    FACEBOOK_URL,
+    HTML_GEMINI_CONFIG_FORM,
+    INSTA_URL,
+    MESSAGE_OBJECT_TYPE,
+    NUM_MESSAGE_CONTEXT,
+    RESUME_BOT_KEYWORD,
+)
 
 # === Configure Gemini ===
 # Configure Gemini
 client = genai.Client(api_key=API_KEY)
+g_gemini_config = {"system_instruction": SYSTEM_PROMPT}
 
 app = Flask(__name__)
 
 chat_sessions = SessionController(client)
 feedback_controller = FeedbackController(delta_time=0) # for testing, change to 30 for production
 
-# === === === === === === === ACTUAL WORK FUNCTION
-def get_gemini_response_with_context(user_message, context, sender_id)->str:
-    message = f'Context: """{context}"""\n\n{user_message}'
-    return get_gemini_response(message, sender_id)
 
-def get_gemini_response(user_message, sender_id) -> str:
+# === === === === === === === ACTUAL WORK FUNCTION
+def get_gemini_response_with_context(
+    user_message: str,
+    context: str,
+    sender_id: str,
+    history: List[genai_types.Content] = None,
+    config: Dict = None,
+) -> str:
+    """
+    Generates a Gemini response using additional context prepended to the user message.
+
+    :param user_message: The user's input to the chatbot.
+    :param context: Supplementary context to guide the model's response.
+    :param sender_id: Unique identifier used to retrieve or create a chat session.
+    :param history: Optional list of past messages (chat history) for context.
+    :param system_prompt: Optional instruction to condition the model's response
+        style or behavior, this will override the configuration of the chat session.
+    :return: The model's generated text reply, or a fallback message on error.
+    """
+    message = f'Context: """{context}"""\n\n{user_message}'
+    return get_gemini_response(message, sender_id, history, config)
+
+
+def get_gemini_response(
+    user_message: str,
+    sender_id: str,
+    history: List[genai_types.Content] = None,
+    config: Dict = None,
+) -> str:
+    """
+    Generates a Gemini response based on the user message and optional session data.
+
+    :param user_message: The user's input to the chatbot.
+    :param sender_id: Unique identifier used to retrieve or create a chat session.
+    :param history: Optional list of past messages (chat history) for context.
+    :param system_prompt: Optional instruction to condition the model's response
+        style or behavior, this will override the configuration of the chat session.
+    :return: The model's generated text reply, or a fallback message on error.
+    """
     # actually generate response:
     try:
-        chat_session = chat_sessions.get_session(sender_id)
-        if (chat_session == None):
+        chat_session = chat_sessions.get_session(sender_id, history)
+        if chat_session == None:
             return None
-        chat: Chat = chat_session["chat"] # type: ignore
-        response = chat.send_message(user_message)
-        return response.text # type: ignore
+
+        if config:
+            config = genai_types.GenerateContentConfig(**config)
+            
+        chat: Chat = chat_session["chat"]  # type: ignore
+        response = chat.send_message(user_message, config=config)
+        return response.text  # type: ignore
     except Exception as e:
         print("Gemini error:", e)
         return DEFAULT_RESPONSE
+
 
 def get_new_conversation_context(sender_id, object_type):
     """
     Get the context of a new conversation with a user.
     """
     # Get all messages between the page and the user
-    messages = meta_api.get_conversation_messages_by_user_id(sender_id)
-    if not messages:
+    conversation = meta_api.get_conversation_messages_by_user_id(sender_id)
+    if not conversation:
         return ""
 
-    last_5_messages = messages[NUM_MESSAGE_CONTEXT:]
+    last_5_messages = conversation[:NUM_MESSAGE_CONTEXT]
     message_ids = [msg["id"] for msg in last_5_messages]
     
     # Batch fetch the messages by IDs
-    batch_messages = meta_api.batch_get_messages_by_ids(message_ids, object_type)
+    batch_messages = meta_api.batch_get_messages_by_ids_v2(message_ids, object_type)
     
     return batch_messages
 
@@ -92,7 +139,7 @@ def handle_user_feedback(sender_id, user_message, object_type):
     meta_api.send_meta_message(sender_id, "Cảm ơn bạn đã góp ý! 💬", object_type) # ✅ 
 
 def handle_user_message(message_event, object_type):
-    # get time 
+    # get time
     current_time = int(datetime.now().strftime("%Y%m%d%H%M%S"))
 
     # get message info
@@ -102,15 +149,15 @@ def handle_user_message(message_event, object_type):
 
     # handle user feedback
     if user_message.lower().startswith("/feedback"):
-        #STOP, no Gemini reply
+        # STOP, no Gemini reply
         handle_user_feedback(sender_id, user_message, object_type)
         return
-    
+
     if (chat_sessions.is_chat_suspended(sender_id)):
         # suspended, no response
         print("[Webhook]: Chat session suspended for user", sender_id)
         return
-    
+
     # owner take over
     if check_owner(object_type, sender_id):
         recipient_id = message_event["recipient"]['id']
@@ -123,38 +170,49 @@ def handle_user_message(message_event, object_type):
             print("[Webhook]: Owner resume chat session", recipient_id)
             chat_sessions.resume_session(recipient_id)
         return
-    
+
     # send typing indicator
     meta_api.send_typing_indicator(sender_id)
 
     delay_time = random.randint(1, 3)
     def get_and_set_message():
-            # handle reply if exist
+        # handle reply if exist
         bot_reply = None
         reply = message_event["message"].get("reply_to", None)
         print(f"[Webhook]: user reply_to: {reply} - type: {type(reply)}")
         # === Get reply from Gemini ===
-        if reply != None:
+
+        # fetch chat history if session does not exist
+        chat_history = None
+        if not chat_sessions.is_session_exist(sender_id):
+            batch_messages = get_new_conversation_context(sender_id, object_type)
+            if batch_messages:
+                chat_history = convert_to_gemini_chat_history(batch_messages)
+                print("[Webhook]: New conversation context", len(batch_messages))
+
+        # handle reply if any
+        if reply:
             # reply to a message
             message_id = reply["mid"]
             reply_message_text = meta_api.get_message_by_id(message_id, object_type)
             print("[Webhook]: Reply to message", reply_message_text)    
-            bot_reply = get_gemini_response_with_context(user_message, reply_message_text, sender_id)
-        elif not chat_sessions.is_session_exist(sender_id):
-            # Get context for new session
-            context_msgs = get_new_conversation_context(sender_id, object_type)
-            print("[Webhook]: New conversation context", len(context_msgs))
+            bot_reply = get_gemini_response_with_context(
+                user_message,
+                reply_message_text,
+                sender_id,
+                history=chat_history,
+                config=g_gemini_config,
+            )
 
-            if context_msgs == None:
-                bot_reply = get_gemini_response(user_message, sender_id)
-            else:
-                # Get context for new session
-                context = "\n".join(context_msgs)
-                bot_reply = get_gemini_response_with_context(user_message, context, sender_id)
         else:
-            bot_reply = get_gemini_response(user_message, sender_id)
-        
-        if (bot_reply == None):
+            bot_reply = get_gemini_response(
+                user_message,
+                sender_id,
+                history=chat_history,
+                config=g_gemini_config,
+            )
+
+        if not bot_reply:
             # Suspended, no response
             return
         print("[Webhook]: reply", bot_reply[:100])
@@ -186,6 +244,14 @@ def handle_reaction_event(event, object_type):
 def test():
     return "Flask is working!"
 
+@app.route("/gemini_config", methods=["GET", "POST"])
+def gemini_config():
+    if request.method == "POST":
+        new_value = request.form.get("input_value", "")
+        g_gemini_config["system_instruction"] = new_value  # Update variable
+
+    return render_template_string(HTML_GEMINI_CONFIG_FORM, value=g_gemini_config["system_instruction"])
+
 @app.route("/htop/<int:interval>")
 def htop(interval:int):
     log = logging.get_system_usage(interval)
@@ -209,6 +275,7 @@ def webhook():
     elif request.method == 'POST':
         data = request.get_json()
         object_type = data.get("object", "")
+        print("================================")
         print("[Webhook]: Received data:", data)
         print(f"[GLOBAL] Chat sessions: {list(chat_sessions.sessions.keys())}")
         print(f"[GLOBAL] Suspended Sessions: {list(chat_sessions.suspended_sessions.keys())}")

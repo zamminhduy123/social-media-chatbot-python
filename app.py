@@ -12,6 +12,7 @@ from google.genai.chats import Chat
 from api import meta as meta_api
 from controller.FeedbackController import FeedbackController
 from controller.SessionController import SessionController
+from controller.DebounceMessageController import DebounceMessageController, Message
 from controller.utils.chat import convert_to_gemini_chat_history
 from gemini_prompt import DEFAULT_RESPONSE, SYSTEM_PROMPT
 from utils import logging, thread_utils
@@ -34,6 +35,7 @@ from constant import (
     MESSAGE_OBJECT_TYPE,
     NUM_MESSAGE_CONTEXT,
     RESUME_BOT_KEYWORD,
+    DEBOUNCE_TIME
 )
 
 # === Configure Gemini ===
@@ -45,7 +47,7 @@ app = Flask(__name__)
 
 chat_sessions = SessionController(client)
 feedback_controller = FeedbackController(delta_time=0) # for testing, change to 30 for production
-
+debounce_controller = DebounceMessageController(wait_seconds=DEBOUNCE_TIME) # 5 for testing, change to 10 for production
 
 # === === === === === === === ACTUAL WORK FUNCTION
 def get_gemini_response_with_context(
@@ -132,6 +134,63 @@ def is_bot_message(app_id, sender_id, object_type):
     if (check_owner(object_type, sender_id) and str(app_id) == str(APP_ID)):
         return True
     return False
+
+# ===== === === === === === === CORE LOGICS
+def get_and_send_message(sender_id, messages : Message, object_type):
+    print("[Webhook]: Get and send message", sender_id, messages)
+    # send typing indicator
+    meta_api.send_typing_indicator(sender_id)
+
+    # get message info 
+    reply_context, full_user_message = [], []
+    for message in messages:
+        if (message.get('reply_to', None) != None):
+            reply_context.append(message['reply_to'])
+        full_user_message.append(message['text'])
+    user_message = "\n".join(full_user_message)
+    reply_context = "\n".join(reply_context) if (reply_context) else None
+    print(f"[Webhook]: User [{sender_id}] ask", user_message, "with reply context", reply_context)
+
+    # === Get reply from Gemini ===
+
+    # fetch chat history if session does not exist
+    chat_history = None
+    if not chat_sessions.is_session_exist(sender_id):
+        batch_messages = get_new_conversation_context(sender_id, object_type)
+        if batch_messages:
+            chat_history = convert_to_gemini_chat_history(batch_messages)
+            print("[Webhook]: New conversation context", len(batch_messages))
+
+    # handle reply if any
+    if reply_context:
+        print("[Webhook]: Reply to message", reply_context)    
+        bot_reply = get_gemini_response_with_context(
+            user_message,
+            reply_context,
+            sender_id,
+            history=chat_history,
+            config=g_gemini_config,
+        )
+
+    else:
+        bot_reply = get_gemini_response(
+            user_message,
+            sender_id,
+            history=chat_history,
+            config=g_gemini_config,
+        )
+
+    if not bot_reply:
+        # Suspended, no response
+        return
+    print("[Webhook]: reply", bot_reply[:100])
+
+    # assume typing cost 190 char per minute 
+    typing_time = len(bot_reply) / 190 * 60
+
+    thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, bot_reply, object_type)
+
+
 # === === === === === === === ROUTING FUNCTION
 def handle_user_feedback(sender_id, user_message, object_type):
     feedback_text = user_message[len("/feedback"):].strip()
@@ -170,57 +229,31 @@ def handle_user_message(message_event, object_type):
             print("[Webhook]: Owner resume chat session", recipient_id)
             chat_sessions.resume_session(recipient_id)
         return
+    
+    # get reply if exists
+    reply, reply_message_text = message_event.get("message", {}).get("reply_to", None), None
+    if reply != None:
+        # reply to a message
+        message_id = reply["mid"]
+        reply_message_text = meta_api.get_message_by_id(message_id, object_type)
 
-    # send typing indicator
-    meta_api.send_typing_indicator(sender_id)
-
-    delay_time = random.randint(1, 3)
-    def get_and_set_message():
-        # handle reply if exist
-        bot_reply = None
-        reply = message_event["message"].get("reply_to", None)
-        print(f"[Webhook]: user reply_to: {reply} - type: {type(reply)}")
-        # === Get reply from Gemini ===
-
-        # fetch chat history if session does not exist
-        chat_history = None
-        if not chat_sessions.is_session_exist(sender_id):
-            batch_messages = get_new_conversation_context(sender_id, object_type)
-            if batch_messages:
-                chat_history = convert_to_gemini_chat_history(batch_messages)
-                print("[Webhook]: New conversation context", len(batch_messages))
-
-        # handle reply if any
-        if reply:
-            # reply to a message
-            message_id = reply["mid"]
-            reply_message_text = meta_api.get_message_by_id(message_id, object_type)
-            print("[Webhook]: Reply to message", reply_message_text)    
-            bot_reply = get_gemini_response_with_context(
-                user_message,
-                reply_message_text,
-                sender_id,
-                history=chat_history,
-                config=g_gemini_config,
-            )
-
+    def debounce_callback(uid, msgs):
+        # get and send message
+        print("[Webhook]: Debounce callback", uid, msgs)
+        if (msgs):
+            # get and send message
+            get_and_send_message(uid, msgs, object_type)
         else:
-            bot_reply = get_gemini_response(
-                user_message,
-                sender_id,
-                history=chat_history,
-                config=g_gemini_config,
-            )
-
-        if not bot_reply:
-            # Suspended, no response
-            return
-        print("[Webhook]: reply", bot_reply[:100])
-
-        meta_api.send_meta_message(sender_id, bot_reply, object_type)
-
-    print(f"[Webhook]: Delay time: {delay_time} seconds")
-    thread_utils.delayed_call(0, get_and_set_message) # 0 for testing, change to delay_time for production
+            print("[Webhook]: No messages in debounce buffer")
+   
+    debounce_controller.add_message(
+        sender_id,
+        {
+            "text": user_message,
+            "reply_to": reply_message_text,
+        },
+        debounce_callback
+    )
 
 def handle_reaction_event(event, object_type):
     print("[Webhook]: Reaction event", event)

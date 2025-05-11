@@ -1,8 +1,10 @@
+from typing import List
 from flask import Flask, request
 import requests
 import os
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types as genai_types
 from google.genai.chats import Chat
 import json
 import random
@@ -10,6 +12,7 @@ from datetime import datetime
 import time
 from utils import logging, thread_utils
 
+from controller.utils.chat import convert_to_gemini_chat_history
 from controller.SessionController import SessionController
 from controller.FeedbackController import FeedbackController
 from gemini_prompt import DEFAULT_RESPONSE
@@ -38,38 +41,50 @@ app = Flask(__name__)
 chat_sessions = SessionController(client)
 feedback_controller = FeedbackController(delta_time=0) # for testing, change to 30 for production
 
-# === === === === === === === ACTUAL WORK FUNCTION
-def get_gemini_response_with_context(user_message, context, sender_id)->str:
-    message = f'Context: """{context}"""\n\n{user_message}'
-    return get_gemini_response(message, sender_id)
 
-def get_gemini_response(user_message, sender_id) -> str:
+# === === === === === === === ACTUAL WORK FUNCTION
+def get_gemini_response_with_context(
+    user_message: str,
+    context: str,
+    sender_id: str,
+    history: List[genai_types.Content] = None,
+) -> str:
+    message = f'Context: """{context}"""\n\n{user_message}'
+    return get_gemini_response(message, sender_id, history)
+
+
+def get_gemini_response(
+    user_message: str,
+    sender_id: str,
+    history: List[genai_types.Content] = None,
+) -> str:
     # actually generate response:
     try:
-        chat_session = chat_sessions.get_session(sender_id)
-        if (chat_session == None):
+        chat_session = chat_sessions.get_session(sender_id, history)
+        if chat_session == None:
             return None
-        chat: Chat = chat_session["chat"] # type: ignore
+        chat: Chat = chat_session["chat"]  # type: ignore
         response = chat.send_message(user_message)
-        return response.text # type: ignore
+        return response.text  # type: ignore
     except Exception as e:
         print("Gemini error:", e)
         return DEFAULT_RESPONSE
+
 
 def get_new_conversation_context(sender_id, object_type):
     """
     Get the context of a new conversation with a user.
     """
     # Get all messages between the page and the user
-    messages = meta_api.get_conversation_messages_by_user_id(sender_id)
-    if not messages:
+    conversation = meta_api.get_conversation_messages_by_user_id(sender_id)
+    if not conversation:
         return ""
 
-    last_5_messages = messages[NUM_MESSAGE_CONTEXT:]
+    last_5_messages = conversation[:NUM_MESSAGE_CONTEXT]
     message_ids = [msg["id"] for msg in last_5_messages]
     
     # Batch fetch the messages by IDs
-    batch_messages = meta_api.batch_get_messages_by_ids(message_ids, object_type)
+    batch_messages = meta_api.batch_get_messages_by_ids_v2(message_ids, object_type)
     
     return batch_messages
 
@@ -140,17 +155,19 @@ def handle_user_message(message_event, object_type):
             reply_message_text = meta_api.get_message_by_id(message_id, object_type)
             print("[Webhook]: Reply to message", reply_message_text)    
             bot_reply = get_gemini_response_with_context(user_message, reply_message_text, sender_id)
-        elif not chat_sessions.is_session_exist(sender_id):
-            # Get context for new session
-            context_msgs = get_new_conversation_context(sender_id, object_type)
-            print("[Webhook]: New conversation context", len(context_msgs))
 
-            if context_msgs == None:
+        # add chat history if any
+        elif not chat_sessions.is_session_exist(sender_id):
+            batch_messages = get_new_conversation_context(sender_id, object_type)
+
+            print("[Webhook]: New conversation context", len(batch_messages))
+
+            if batch_messages == None:
                 bot_reply = get_gemini_response(user_message, sender_id)
             else:
                 # Get context for new session
-                context = "\n".join(context_msgs)
-                bot_reply = get_gemini_response_with_context(user_message, context, sender_id)
+                chat_history = convert_to_gemini_chat_history(batch_messages)
+                bot_reply = get_gemini_response(user_message, sender_id, chat_history)
         else:
             bot_reply = get_gemini_response(user_message, sender_id)
         

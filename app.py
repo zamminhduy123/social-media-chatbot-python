@@ -13,8 +13,15 @@ from api import meta as meta_api
 from controller.FeedbackController import FeedbackController
 from controller.SessionController import SessionController
 from controller.DebounceMessageController import DebounceMessageController, Message
-from controller.utils.chat import convert_to_gemini_chat_history
-from gemini_prompt import DEFAULT_RESPONSE, SYSTEM_PROMPT
+from controller.utils.chat import clean_message, convert_to_gemini_chat_history
+from gemini_prompt import (
+    DEFAULT_RESPONSE,
+    HTML_GEMINI_CONFIG_FORM,
+    SEED,
+    SYSTEM_PROMPT,
+    TEMPERATURE,
+    get_chat_config,
+)
 from utils import logging, thread_utils
 
 # === Load environment variables ===
@@ -30,18 +37,30 @@ APP_ID = os.getenv("APP_ID")
 # === CONFIG ===
 from constant import (
     FACEBOOK_URL,
-    HTML_GEMINI_CONFIG_FORM,
     INSTA_URL,
     MESSAGE_OBJECT_TYPE,
     NUM_MESSAGE_CONTEXT,
     RESUME_BOT_KEYWORD,
-    DEBOUNCE_TIME
+    DEBOUNCE_TIME,
+    BOT_TYPING_CPM
 )
 
 # === Configure Gemini ===
 # Configure Gemini
 client = genai.Client(api_key=API_KEY)
-g_gemini_config = {"system_instruction": SYSTEM_PROMPT}
+
+CONFIG_FIELD_TYPE_MAP = {
+    "gemini_system_instruction": (str, SYSTEM_PROMPT),
+    "gemini_temperature": (float, TEMPERATURE),
+    "gemini_max_output_tokens": (int, 2000),
+    "gemini_seed": (int, SEED),
+    "app_bot_typing_cpm": (int, BOT_TYPING_CPM),
+    "app_debounce_time": (float, DEBOUNCE_TIME),
+}
+
+g_gemini_config = get_chat_config().to_json_dict()
+g_app_config = {"bot_typing_cpm": BOT_TYPING_CPM,
+                "debounce_time": DEBOUNCE_TIME}
 
 app = Flask(__name__)
 
@@ -99,7 +118,7 @@ def get_gemini_response(
             
         chat: Chat = chat_session["chat"]  # type: ignore
         response = chat.send_message(user_message, config=config)
-        return response.text  # type: ignore
+        return clean_message(response.text) # type: ignore
     except Exception as e:
         print("Gemini error:", e)
         return DEFAULT_RESPONSE
@@ -186,7 +205,7 @@ def get_and_send_message(sender_id, messages : Message, object_type):
     print("[Webhook]: reply", bot_reply[:100])
 
     # assume typing cost 190 char per minute 
-    typing_time = len(bot_reply) / 190 * 60
+    typing_time = len(bot_reply) / g_app_config["bot_typing_cpm"] * 60
 
     thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, bot_reply, object_type)
 
@@ -277,13 +296,42 @@ def handle_reaction_event(event, object_type):
 def test():
     return "Flask is working!"
 
-@app.route("/gemini_config", methods=["GET", "POST"])
-def gemini_config():
-    if request.method == "POST":
-        new_value = request.form.get("input_value", "")
-        g_gemini_config["system_instruction"] = new_value  # Update variable
+@app.route("/config", methods=["GET", "POST"])
+def config():
+    def _safe_cast(val, to_type, default):
+        try:
+            return to_type(val)
+        except (ValueError, TypeError):
+            return default
 
-    return render_template_string(HTML_GEMINI_CONFIG_FORM, value=g_gemini_config["system_instruction"])
+    def _apply_app_config():
+        try:
+            debounce_time = max(0.0, g_app_config["debounce_time"])
+            debounce_controller.wait_seconds=debounce_time
+            return True
+        except Exception as e:
+            print(f"[Config] error changing app config - {e}")
+            return False
+
+    if request.method == "POST":
+        form = request.form
+        for key in form:
+            field_value = form.get(key, "")
+            field_type, field_default = CONFIG_FIELD_TYPE_MAP[key]
+            field_value = _safe_cast(field_value, field_type, field_default)
+            if key.startswith("gemini_"):
+                key = key.removeprefix("gemini_")
+                g_gemini_config[key] = field_value
+            elif key.startswith("app_"):
+                key = key.removeprefix("app_")
+                g_app_config[key] = field_value
+
+        success = _apply_app_config()
+        if success:
+            print(f"[Config] Successfully change config.")
+
+    context = {**g_gemini_config, **g_app_config}
+    return render_template_string(HTML_GEMINI_CONFIG_FORM, **context)
 
 @app.route("/htop/<int:interval>")
 def htop(interval:int):

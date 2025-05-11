@@ -23,13 +23,4 @@ MESSAGE_OBJECT_TYPE = {
 RESUME_BOT_KEYWORD = "!!!"
 NUM_MESSAGE_CONTEXT = 10
 DEBOUNCE_TIME = 20
-
-HTML_GEMINI_CONFIG_FORM = """
-<!doctype html>
-<title>System Prompt</title>
-<form method="POST">
-  <textarea name="input_value" rows="10" cols="50" placeholder="Enter new system prompt">{{ value }}</textarea>
-  <br>
-  <input type="submit" value="Update">
-</form>
-"""
+BOT_TYPING_CPM = 190 # character per minute

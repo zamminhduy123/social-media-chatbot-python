@@ -1,3 +1,4 @@
+import re
 from typing import List, Tuple
 
 from google import genai
@@ -27,3 +28,6 @@ def convert_to_gemini_chat_history(batch_messages: List[Tuple[str,str]]) ->List[
         first_message = f'Context: """owner: {first_message}"""'
         chat_history[0].role = "user"
     return chat_history
+
+def clean_message(message:str) -> str:
+    return re.sub(r'\[.*?\]\((https?://[^\)]+)\)', r'\1', message)

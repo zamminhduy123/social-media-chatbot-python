@@ -38,3 +38,4 @@ ngrok.log
 poetry.lock
 Pipfile.lock
 credentials/
+notebooks/

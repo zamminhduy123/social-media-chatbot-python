@@ -92,8 +92,11 @@ class SessionController:
     def create_session(
         self,
         user_id,
-        history: List[genai_types.Content],
+        history: List[genai_types.Content] = None,
     ):
+        if history:
+            print(f"[Session Controller] Adding chat history for {user_id}")
+
         self.sessions[user_id] = {
             "chat": self.client.chats.create(
                 model=MODEL_ID,

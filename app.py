@@ -107,7 +107,7 @@ def handle_user_feedback(sender_id, user_message, object_type):
     meta_api.send_meta_message(sender_id, "Cảm ơn bạn đã góp ý! 💬", object_type) # ✅ 
 
 def handle_user_message(message_event, object_type):
-    # get time 
+    # get time
     current_time = int(datetime.now().strftime("%Y%m%d%H%M%S"))
 
     # get message info
@@ -117,15 +117,15 @@ def handle_user_message(message_event, object_type):
 
     # handle user feedback
     if user_message.lower().startswith("/feedback"):
-        #STOP, no Gemini reply
+        # STOP, no Gemini reply
         handle_user_feedback(sender_id, user_message, object_type)
         return
-    
+
     if (chat_sessions.is_chat_suspended(sender_id)):
         # suspended, no response
         print("[Webhook]: Chat session suspended for user", sender_id)
         return
-    
+
     # owner take over
     if check_owner(object_type, sender_id):
         recipient_id = message_event["recipient"]['id']
@@ -138,40 +138,47 @@ def handle_user_message(message_event, object_type):
             print("[Webhook]: Owner resume chat session", recipient_id)
             chat_sessions.resume_session(recipient_id)
         return
-    
+
     # send typing indicator
     meta_api.send_typing_indicator(sender_id)
 
     delay_time = random.randint(1, 3)
     def get_and_set_message():
-            # handle reply if exist
+        # handle reply if exist
         bot_reply = None
         reply = message_event["message"].get("reply_to", None)
         print(f"[Webhook]: user reply_to: {reply} - type: {type(reply)}")
         # === Get reply from Gemini ===
-        if reply != None:
+
+        # fetch chat history if session does not exist
+        chat_history = None
+        if not chat_sessions.is_session_exist(sender_id):
+            batch_messages = get_new_conversation_context(sender_id, object_type)
+            if batch_messages:
+                chat_history = convert_to_gemini_chat_history(batch_messages)
+                print("[Webhook]: New conversation context", len(batch_messages))
+
+        # handle reply if any
+        if reply:
             # reply to a message
             message_id = reply["mid"]
             reply_message_text = meta_api.get_message_by_id(message_id, object_type)
             print("[Webhook]: Reply to message", reply_message_text)    
-            bot_reply = get_gemini_response_with_context(user_message, reply_message_text, sender_id)
+            bot_reply = get_gemini_response_with_context(
+                user_message,
+                reply_message_text,
+                sender_id,
+                history=chat_history,
+            )
 
-        # add chat history if any
-        elif not chat_sessions.is_session_exist(sender_id):
-            batch_messages = get_new_conversation_context(sender_id, object_type)
-
-            print("[Webhook]: New conversation context", len(batch_messages))
-
-            if batch_messages == None:
-                bot_reply = get_gemini_response(user_message, sender_id)
-            else:
-                # Get context for new session
-                chat_history = convert_to_gemini_chat_history(batch_messages)
-                bot_reply = get_gemini_response(user_message, sender_id, chat_history)
         else:
-            bot_reply = get_gemini_response(user_message, sender_id)
-        
-        if (bot_reply == None):
+            bot_reply = get_gemini_response(
+                user_message,
+                sender_id,
+                history=chat_history,
+            )
+
+        if not bot_reply:
             # Suspended, no response
             return
         print("[Webhook]: reply", bot_reply[:100])

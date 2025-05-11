@@ -28,7 +28,20 @@ PLACEHOLDER = (
 DEFAULT_RESPONSE = (
     "Xin lỗi, mình chưa có thông tin về vấn đề này. Bạn vui lòng liên hệ trực"
     " tiếp với KNI qua số điện thoại +84 091-839-1099 hoặc email nhat@kni.vn để"
-    " được hỗ trợ tốt nhất nhé! :blush:"
+    " được hỗ trợ tốt nhất nhé! 😳"
+)
+
+GREETING_RESPONSE = (
+    "Chào bạn 👋 Mình là trợ lý ảo của KNI Institute, rất vui được hỗ trợ bạn."
+    " Mình có thể giúp bạn tìm hiểu về TestAS, các khóa học luyện thi, hoặc tư vấn"
+    " du học Đức."
+    "\n\n"
+    "Bạn có thể hỏi mình những câu hỏi như:\n"
+    "- \"TestAS là gì?\"\n"
+    "- \"Luyện thi TestAS ở KNI có gì khác biệt?\"\n"
+    "- \"Du học Đức cần chuẩn bị những gì?\""
+    "\n\n"
+    "Nếu bạn có góp ý gì cho mình, hãy dùng lệnh /feedback <tin nhắn> nhé. Cảm ơn bạn 🥰"
 )
 
 

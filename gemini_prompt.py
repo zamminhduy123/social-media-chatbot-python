@@ -23,13 +23,6 @@ TOP_K = 10
 CANDIDATE_COUNT = 1
 SEED = 5
 
-FIELD_MAP = {
-    "system_instruction": str,
-    "temperature": float,
-    "max_output_tokens": int,
-    "seed": int,
-}
-
 PLACEHOLDER = (
     "Chào bạn! Mình là chatbot hỗ trợ của KNI Education, rất vui được hỗ trợ"
     " bạn. Bạn có câu hỏi nào về luyện thi TestAS hay tư vấn du học Đức không?"

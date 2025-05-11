@@ -33,8 +33,7 @@
 
         input[type="text"],
         input[type="number"],
-        textarea,
-        input[type="range"] {
+        textarea {
             width: 100%;
             padding: 8px;
             border-radius: 6px;
@@ -67,43 +66,94 @@
             padding-top: 20px;
         }
 
-        .collapsible-toggle {
+        .section-toggle {
             background-color: #e9ecef;
             padding: 10px;
             cursor: pointer;
             border-radius: 6px;
-            text-align: center;
             font-weight: bold;
+            user-select: none;
         }
 
-        .collapsible-content {
-            display: none;
-            margin-top: 15px;
+        .section-toggle .toggle-icon {
+            display: inline-block;
+            width: 20px;
+        }
+
+        .section-content {
+            margin-top: 10px;
         }
     </style>
 </head>
 
 <body>
     <form method="POST">
-        <h2>Gemini Config</h2>
+        <h2>Config</h2>
 
         <div class="section">
-            <h3>Basic Configuration</h3>
+            <div class="section-toggle" onclick="toggleSection(this)">
+                <span class="toggle-icon">−</span> Gemini Configuration
+            </div>
+            <div class="section-content">
+                <label>System Instruction:</label>
+                <textarea name="gemini_system_instruction" rows="10"
+                    title="Instructions provided to the model to guide its behavior"
+                    placeholder="You are a helpful assistant...">{{ system_instruction or '' }}</textarea>
 
-            <label>System Instruction:</label>
-            <textarea name="system_instruction" rows="5">{{ system_instruction or '' }}</textarea>
+                <label>Temperature:</label>
+                <input type="number" step="0.01" name="gemini_temperature" min="0.0" max="2.0" value="{{ temperature }}"
+                    title="Controls randomness: 0 = deterministic, higher = more diverse" placeholder="0.0">
 
-            <label>Temperature:</label>
-            <input type="number" step="0.01" name="temperature" min="0.0" max="2.0" value="{{ temperature }}">
-            <!-- <input type="number" step="any" name="top_p" value="{{ top_p or '' }}"> -->
+                <label>Max Output Tokens:</label>
+                <input type="number" min="1" max="8096" name="gemini_max_output_tokens"
+                    value="{{ max_output_tokens or '' }}" title="Maximum number of tokens the model can generate"
+                    placeholder="2000">
 
-            <label>Max Output Tokens:</label>
-            <input type="number" name="max_output_tokens" value="{{ max_output_tokens or '' }}">
+                <label>Seed:</label>
+                <input type="number" name="gemini_seed" value="{{ seed or '' }}"
+                    title="Seed for random number generation (for reproducible outputs)" placeholder="42">
+            </div>
+        </div>
 
-            <label>Seed:</label>
-            <input type="number" name="seed" value="{{ seed or '' }}">
+        <div class="section">
+            <div class="section-toggle" onclick="toggleSection(this)">
+                <span class="toggle-icon">−</span> App Configuration
+            </div>
+            <div class="section-content">
+                <label>Typing speed (character/min):</label>
+                <input type="number" step="1" min="150" name="app_bot_typing_cpm" value="{{ bot_typing_cpm or '' }}"
+                    title="Messenger/Instagram bot typing speed (higher means faster)" placeholder="190">
+
+                <label>Debounce time (second):</label>
+                <input type="number" step="0.01" min="0.0" name="app_debounce_time" value="{{ debounce_time or '' }}"
+                    title="Time to wait before resposne to a user message. Useful when user send consecutive messages without pause."
+                    , placeholder="20">
+            </div>
+        </div>
+
         <input type="submit" value="Submit Configuration">
     </form>
+
+    <script>
+        function toggleSection(header) {
+            const icon = header.querySelector('.toggle-icon');
+            const content = header.nextElementSibling;
+
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.textContent = '−';
+            } else {
+                content.style.display = 'none';
+                icon.textContent = '+';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.section-content').forEach(el => {
+                el.style.display = 'block'; // change to 'none' to collapse all by default
+            });
+        });
+    </script>
 </body>
 
 </html>

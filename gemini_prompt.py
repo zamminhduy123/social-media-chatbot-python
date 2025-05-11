@@ -8,16 +8,27 @@ from google.genai.types import (
 
 BASE_DIR = os.path.dirname(__file__)
 
+HTML_GEMINI_CONFIG_FORM = ""
+with open(f"{BASE_DIR}/pages/config.html", "r", encoding="utf8") as fhandle:
+    HTML_GEMINI_CONFIG_FORM = fhandle.read()
+
 SYSTEM_PROMPT = ""
 with open(f"{BASE_DIR}/system_prompt.txt", "r", encoding="utf8") as fhandle:
     SYSTEM_PROMPT = fhandle.read()
 
 MODEL_ID = "gemini-2.0-flash"
-TEMPERATURE = 0
+TEMPERATURE = 0.0
 TOP_P = 0.95
 TOP_K = 10
 CANDIDATE_COUNT = 1
 SEED = 5
+
+FIELD_MAP = {
+    "system_instruction": str,
+    "temperature": float,
+    "max_output_tokens": int,
+    "seed": int,
+}
 
 PLACEHOLDER = (
     "Chào bạn! Mình là chatbot hỗ trợ của KNI Education, rất vui được hỗ trợ"
@@ -37,9 +48,9 @@ GREETING_RESPONSE = (
     " du học Đức."
     "\n\n"
     "Bạn có thể hỏi mình những câu hỏi như:\n"
-    "- \"TestAS là gì?\"\n"
-    "- \"Luyện thi TestAS ở KNI có gì khác biệt?\"\n"
-    "- \"Du học Đức cần chuẩn bị những gì?\""
+    '- "TestAS là gì?"\n'
+    '- "Luyện thi TestAS ở KNI có gì khác biệt?"\n'
+    '- "Du học Đức cần chuẩn bị những gì?"'
     "\n\n"
     "Nếu bạn có góp ý gì cho mình, hãy dùng lệnh /feedback <tin nhắn> nhé. Cảm ơn bạn 🥰"
 )
@@ -73,6 +84,7 @@ def get_chat_config():
             ),
         ],
     )
+
 
 def get_evaluator_config():
     return GenerateContentConfig(

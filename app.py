@@ -13,8 +13,13 @@ from api import meta as meta_api
 from controller.FeedbackController import FeedbackController
 from controller.SessionController import SessionController
 from controller.DebounceMessageController import DebounceMessageController, Message
-from controller.utils.chat import convert_to_gemini_chat_history
-from gemini_prompt import DEFAULT_RESPONSE, SYSTEM_PROMPT
+from controller.utils.chat import clean_message, convert_to_gemini_chat_history
+from gemini_prompt import (
+    DEFAULT_RESPONSE,
+    FIELD_MAP,
+    HTML_GEMINI_CONFIG_FORM,
+    get_chat_config,
+)
 from utils import logging, thread_utils
 
 # === Load environment variables ===
@@ -30,7 +35,6 @@ APP_ID = os.getenv("APP_ID")
 # === CONFIG ===
 from constant import (
     FACEBOOK_URL,
-    HTML_GEMINI_CONFIG_FORM,
     INSTA_URL,
     MESSAGE_OBJECT_TYPE,
     NUM_MESSAGE_CONTEXT,
@@ -41,7 +45,7 @@ from constant import (
 # === Configure Gemini ===
 # Configure Gemini
 client = genai.Client(api_key=API_KEY)
-g_gemini_config = {"system_instruction": SYSTEM_PROMPT}
+g_gemini_config = get_chat_config().to_json_dict()
 
 app = Flask(__name__)
 
@@ -99,7 +103,7 @@ def get_gemini_response(
             
         chat: Chat = chat_session["chat"]  # type: ignore
         response = chat.send_message(user_message, config=config)
-        return response.text  # type: ignore
+        return clean_message(response.text) # type: ignore
     except Exception as e:
         print("Gemini error:", e)
         return DEFAULT_RESPONSE
@@ -277,13 +281,23 @@ def handle_reaction_event(event, object_type):
 def test():
     return "Flask is working!"
 
-@app.route("/gemini_config", methods=["GET", "POST"])
-def gemini_config():
-    if request.method == "POST":
-        new_value = request.form.get("input_value", "")
-        g_gemini_config["system_instruction"] = new_value  # Update variable
+@app.route("/config", methods=["GET", "POST"])
+def config():
+    def safe_cast(val, to_type):
+        try:
+            return to_type(val)
+        except (ValueError, TypeError):
+            return None
 
-    return render_template_string(HTML_GEMINI_CONFIG_FORM, value=g_gemini_config["system_instruction"])
+    if request.method == "POST":
+        form = request.form
+        for key in form:
+            field_type = FIELD_MAP[key]
+            field_value = form.get(key, "")
+            field_value = safe_cast(field_value, field_type)
+            g_gemini_config[key] = field_value
+        
+    return render_template_string(HTML_GEMINI_CONFIG_FORM, **g_gemini_config)
 
 @app.route("/htop/<int:interval>")
 def htop(interval:int):

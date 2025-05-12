@@ -4,6 +4,7 @@ FACEBOOK_URL = {
     'base': FACEBOOK_BASE_URL,
     'message': f"{FACEBOOK_BASE_URL}/me/messages",
     'typing': f"{FACEBOOK_BASE_URL}/me/messages",
+    'conversation_message': f"{FACEBOOK_BASE_URL}/me/conversations",
 }
 
 INSTA_VERSION = 'v22.0'
@@ -20,3 +21,6 @@ MESSAGE_OBJECT_TYPE = {
 }
 
 RESUME_BOT_KEYWORD = "!!!"
+NUM_MESSAGE_CONTEXT = 10
+DEBOUNCE_TIME = 20
+BOT_TYPING_CPM = 190 # character per minute

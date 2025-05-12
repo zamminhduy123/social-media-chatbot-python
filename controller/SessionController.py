@@ -1,8 +1,10 @@
+import uuid
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Any, Dict, TypedDict
+from typing import Any, Dict, List, TypedDict
 
 from google import genai
+from google.genai import types as genai_types
 from google.genai.chats import Chat
 
 from gemini_prompt import MODEL_ID, get_chat_config
@@ -34,6 +36,13 @@ class SessionController:
         self.client = client
         self.session_capacity = session_capacity
         self.session_time_threshold = session_time_threshold
+        self.debug_id = uuid.uuid4()
+        print("[SessionController] __init__ called, debug_id =", self.debug_id, "time =", datetime.now())
+
+    def hard_reset(self):
+        print("[SessionController] hard_reset called, debug_id =", self.debug_id, "time =", datetime.now())
+        self.sessions = OrderedDict()
+        self.suspended_sessions = OrderedDict()
 
     def _sort_chat_sessions_by_date(self):
         # print("[Session Controller] sort chat sessions by date")
@@ -52,11 +61,13 @@ class SessionController:
 
         self._sort_chat_sessions_by_date()
 
+        deleted_sessions = {}
         # delete by capacity
         if len(self.sessions) > self.session_capacity:
             n_session = len(self.sessions) - self.session_capacity
             for _ in range(n_session):
-                self.sessions.popitem(last=True)
+                user_id, _ = self.sessions.popitem(last=True)
+                deleted_sessions[user_id] = "Deleted by capacity"
 
         # delete by time
         # print("[Session Controller] get delete", self.sessions)
@@ -67,22 +78,30 @@ class SessionController:
                 seconds=self.session_time_threshold
             ):
                 id_to_delete.add(sender_id)
+                deleted_sessions[sender_id] = "Deleted by date"
             else:
                 # dict is ordered and sorted, break when there is no more session
                 # past the time threshold.
                 break
-        
         # print("[Session Controller] delete chat sessions by time", id_to_delete)
         for sender_id in id_to_delete:
             self.delete_session(sender_id)
 
-        # print("[Session Controller] wtf")
+        print(f"[Session Controller] Sorted & Deleted: {deleted_sessions}")
 
-    def create_session(self, user_id):
+    def create_session(
+        self,
+        user_id,
+        history: List[genai_types.Content] = None,
+    ):
+        if history:
+            print(f"[Session Controller] Adding chat history for {user_id}")
+
         self.sessions[user_id] = {
             "chat": self.client.chats.create(
                 model=MODEL_ID,
                 config=get_chat_config(),
+                history=history,
             ),
             "last_date": datetime.now(),
         }
@@ -95,30 +114,48 @@ class SessionController:
         :return: True if the chat session is suspended, False otherwise.
         """
         is_suspended = id in self.suspended_sessions
+        print(f"[Session Controller] Attempting Suspend user {id} - {type(id)}")
+        print(f"[Session Controller] Chat sessions: {list(self.sessions.keys())}")
+        print(f"[Session Controller] Suspended users: {list(self.suspended_sessions.keys())}")
+
         if (is_suspended):
             suspended_time = self.suspended_sessions[id]["suspended_time"]
-            print("Chat session suspended for user:", id, "until", suspended_time, "current time", datetime.now())
+            print("[Session Controller] Chat session suspended for user:", id, "until", suspended_time, "current time", datetime.now())
             if suspended_time > datetime.now():
                 return True
             else:
                 # unsuspend
                 self.suspended_sessions.pop(id)
+        else:
+            print(f"[Session Controller] {id} not suspended - {type(id)}")
 
         return False
 
-    def get_session(self, user_id):
+    def is_session_exist(self, user_id):
         """
-        Retrieves the session for a user.
+        Checks if a session exists for a user.
         :param user_id: The ID of the user.
+        :return: True if the session exists, False otherwise.
+        """
+        return user_id in self.sessions
+
+    def get_session(
+        self,
+        user_id,
+        history: List[genai_types.Content] = None,
+    ):
+        """
+        Retrieves the chat session for a user. If the user doesn't have a chat session, create a new one.
+        :param user_id: The ID of the user.
+        :param history: The chat history
         :return: The session data or None if no session exists.
         """
-        # print("[Session Controller] get session for user:", user_id)
-        if user_id not in self.sessions:
-            session = self.create_session(user_id)
-        else:
+        if self.is_session_exist(user_id):
+            print(f"[Session Controller] get session for {user_id}")
             session = self.sessions.get(user_id)
-
-        # print("[Session Controller] session", session)
+        else:
+            print(f"[Session Controller] create new session for {user_id}")
+            session = self.create_session(user_id, history)
 
         # update chat session time to now
         current_time = datetime.now()

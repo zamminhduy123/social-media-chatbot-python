@@ -230,6 +230,14 @@ def handle_user_message(message_event, object_type):
         # STOP, no Gemini reply
         handle_user_feedback(sender_id, user_message, object_type)
         return
+    
+    if user_message.lower().startswith("/dev-no-history"):
+        # delete current chat session with sender and initialize a new chat session without history.
+        chat_sessions.delete_session(sender_id)
+        chat_sessions.create_session(sender_id)
+        print(f"[Webhook]: Chat session reset with no history for {sender_id}")
+        return
+
 
     if (chat_sessions.is_chat_suspended(sender_id)):
         # suspended, no response

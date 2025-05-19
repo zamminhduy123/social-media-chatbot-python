@@ -22,7 +22,7 @@ from gemini_prompt import (
     TEMPERATURE,
     get_chat_config,
 )
-from utils import logging, thread_utils
+from utils import logging, thread_utils, common
 
 # === Load environment variables ===
 load_dotenv()
@@ -42,7 +42,8 @@ from constant import (
     NUM_MESSAGE_CONTEXT,
     RESUME_BOT_KEYWORD,
     DEBOUNCE_TIME,
-    BOT_TYPING_CPM
+    BOT_TYPING_CPM,
+    IMAGE_SEND_KEYWORD
 )
 
 # === Configure Gemini ===
@@ -204,10 +205,24 @@ def get_and_send_message(sender_id, messages : Message, object_type):
         return
     print("[Webhook]: reply", bot_reply[:100])
 
+    # --- Detect image tokens ---------------------------------
+    image_reg = common.get_key_word_regex(IMAGE_SEND_KEYWORD)
+    image_tokens = image_reg.findall(bot_reply or "")
+    
+    bot_reply = image_reg.sub("", bot_reply or "").strip()
     # assume typing cost 190 char per minute 
-    typing_time = len(bot_reply) / g_app_config["bot_typing_cpm"] * 60
+    typing_time = len(bot_reply) / g_app_config["bot_typing_cpm"] * 60  
 
-    thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, bot_reply, object_type)
+    if (bot_reply):
+        thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, bot_reply, object_type)
+
+    if (len(image_tokens) > 0):
+        for url in image_tokens:
+            print("[Webhook]: Image URL send", url)
+
+            # extra delay for image
+            thread_utils.delayed_call(typing_time + 5, meta_api.send_meta_image, sender_id, url, object_type=object_type)
+
 
 
 # === === === === === === === ROUTING FUNCTION

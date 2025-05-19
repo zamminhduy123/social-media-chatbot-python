@@ -219,7 +219,7 @@ def get_and_send_message(sender_id, messages : Message, object_type):
     if (len(urls) > 0):
         for url in urls:
             print("[Webhook]: Image URL send", url)
-
+            url = "https://" + url if not url.startswith("http") else url
             # extra delay for image
             thread_utils.delayed_call(typing_time, meta_api.send_meta_image, sender_id, url, object_type=object_type)
 

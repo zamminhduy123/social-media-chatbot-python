@@ -134,36 +134,50 @@ def batch_get_messages_by_ids_v2(message_ids, object_type=MESSAGE_OBJECT_TYPE["f
         print("Exception during batch message fetch:", e)
         return []
 
-
 def _upload_image_get_attachment_id(image_source: str,
                                     source_type: str,
                                     object_type=MESSAGE_OBJECT_TYPE["facebook_page"]):
     """
-    Returns an attachment_id if upload is required, or None if we can send by URL.
-    source_type: "url"  -> already public, no upload
-                 "file" -> local path, must upload to FB
+    Uploads an image to Facebook and returns the attachment ID.
+    If the source_type is 'url', returns None as no upload is necessary.
     """
     if source_type == IMAGE_ATTACHMENT_TYPE["url"]:
-        return None  # We’ll send the URL directly
+        return None
+    access_token = os.getenv("PAGE_ACCESS_TOKEN") if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] else os.getenv("INSTA_ACCESS_TOKEN")
+    page_id = os.getenv("PAGE_ID") if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] else os.getenv("INSTA_ID")
 
-    # For local file upload:
-    access_token = PAGE_ACCESS_TOKEN if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] else INSTA_ACCESS_TOKEN
-    url = f"https://graph.facebook.com/v17.0/me/message_attachments?access_token={access_token}"
+    url = f"{FACEBOOK_URL['base']}/{page_id}/message_attachments"
 
-    mime, _ = mimetypes.guess_type(image_source)
-    mime = mime or "image/jpeg"
+    mime_type, _ = mimetypes.guess_type(image_source)
+    mime_type = mime_type or "image/jpeg"
 
-    with open(image_source, "rb") as f:
-        files = {
-            "filedata": (image_source, f, mime)
-        }
-        data = {"message_attachment": json.dumps({"type": "image", "payload": {}})}
-        resp = requests.post(url, files=files, data=data)
-        if resp.ok:
-            return resp.json()["attachment_id"]
-        else:
-            print("Upload error:", resp.text)
-            return None
+    payload = {
+        "is_reusable": False
+    }
+    if (source_type == IMAGE_ATTACHMENT_TYPE["url"]):
+        payload["url"] = image_source
+
+    try:
+        with open(image_source, "rb") as image_file:
+            files = {
+                'filedata': (os.path.basename(image_source), image_file, mime_type)
+            }
+            data = {
+                'message': json.dumps({
+                    'attachment': {
+                        'type': 'image',
+                        'payload': payload
+                    }
+                }),
+                'access_token': access_token
+            }
+            response = requests.post(url, files=files, data=data) if (source_type == IMAGE_ATTACHMENT_TYPE["file"]) else requests.post(url, data=data)
+            response.raise_for_status()
+            result = response.json()
+            return result.get("attachment_id")
+    except Exception as e:
+        print(f"Error uploading image: {e}")
+        return None
 
 def send_meta_message(
         psid, 
@@ -201,6 +215,7 @@ def send_meta_image(psid: str,
         if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] \
         else f"{INSTA_URL['message']}?access_token={access_token}"
 
+
     attachment_id = _upload_image_get_attachment_id(image_source, source_type, object_type)
     print("Attachment ID:", attachment_id)
 
@@ -221,7 +236,7 @@ def send_meta_image(psid: str,
             "message": {
                 "attachment": {
                     "type": "image",
-                    "payload": {"url": image_source, "is_reusable": True}
+                    "payload": {"url": image_source, "is_reusable": False}
                 }
             }
         }

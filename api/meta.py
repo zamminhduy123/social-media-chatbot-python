@@ -202,6 +202,7 @@ def send_meta_image(psid: str,
         else f"{INSTA_URL['message']}?access_token={access_token}"
 
     attachment_id = _upload_image_get_attachment_id(image_source, source_type, object_type)
+    print("Attachment ID:", attachment_id)
 
     if attachment_id:
         payload = {

@@ -25,7 +25,7 @@ IMAGE_ATTACHMENT_TYPE = {
     "file": "image_file"
 }
 
-IMAGE_SEND_KEYWORD = 'send_image:'
+IMAGE_SEND_KEYWORD = 'send_image'
 
 RESUME_BOT_KEYWORD = "!!!"
 NUM_MESSAGE_CONTEXT = 10

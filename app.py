@@ -206,22 +206,22 @@ def get_and_send_message(sender_id, messages : Message, object_type):
     print("[Webhook]: reply", bot_reply[:100])
 
     # --- Detect image tokens ---------------------------------
-    image_reg = common.get_key_word_regex(IMAGE_SEND_KEYWORD)
-    image_tokens = image_reg.findall(bot_reply or "")
+    urls, cleaned_bot_reply = common.strip_keyword_directives(bot_reply, IMAGE_SEND_KEYWORD)
+    print("[Webhook]: Image tokens", urls)
     
-    bot_reply = image_reg.sub("", bot_reply or "").strip()
     # assume typing cost 190 char per minute 
-    typing_time = len(bot_reply) / g_app_config["bot_typing_cpm"] * 60  
+    typing_time = len(cleaned_bot_reply) / g_app_config["bot_typing_cpm"] * 60  
+    print("[Webhook]: Bot Reply", cleaned_bot_reply)
 
-    if (bot_reply):
-        thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, bot_reply, object_type)
+    if (cleaned_bot_reply):
+        thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, cleaned_bot_reply, object_type)
 
-    if (len(image_tokens) > 0):
-        for url in image_tokens:
+    if (len(urls) > 0):
+        for url in urls:
             print("[Webhook]: Image URL send", url)
 
             # extra delay for image
-            thread_utils.delayed_call(typing_time + 5, meta_api.send_meta_image, sender_id, url, object_type=object_type)
+            thread_utils.delayed_call(typing_time, meta_api.send_meta_image, sender_id, url, object_type=object_type)
 
 
 

@@ -1,7 +1,7 @@
 import uuid
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 
 from google import genai
 from google.genai import types as genai_types
@@ -27,6 +27,7 @@ class SessionController:
         client: genai.Client | Any,
         session_capacity: int = SESSION_CAPACITY,
         session_time_threshold: int = SESSION_TIME_THRESHOLD,
+        default_gemini_config: Optional[genai_types.GenerateContentConfigOrDict] = None,
     ):
         """
         Initializes a new SessionController instance.
@@ -36,6 +37,8 @@ class SessionController:
         self.client = client
         self.session_capacity = session_capacity
         self.session_time_threshold = session_time_threshold
+        self.default_gemini_config = default_gemini_config
+
         self.debug_id = uuid.uuid4()
         print("[SessionController] __init__ called, debug_id =", self.debug_id, "time =", datetime.now())
 
@@ -93,14 +96,16 @@ class SessionController:
         self,
         user_id,
         history: List[genai_types.Content] = None,
+        config: Optional[genai_types.GenerateContentConfigOrDict] = None,
     ):
         if history:
             print(f"[Session Controller] Adding chat history for {user_id}")
 
+        config = config if config else self.default_gemini_config
         self.sessions[user_id] = {
             "chat": self.client.chats.create(
                 model=MODEL_ID,
-                config=get_chat_config(),
+                config=config,
                 history=history,
             ),
             "last_date": datetime.now(),
@@ -143,6 +148,7 @@ class SessionController:
         self,
         user_id,
         history: List[genai_types.Content] = None,
+        config: Optional[genai_types.GenerateContentConfigOrDict] = None,
     ):
         """
         Retrieves the chat session for a user. If the user doesn't have a chat session, create a new one.
@@ -155,7 +161,7 @@ class SessionController:
             session = self.sessions.get(user_id)
         else:
             print(f"[Session Controller] create new session for {user_id}")
-            session = self.create_session(user_id, history)
+            session = self.create_session(user_id, history, config)
 
         # update chat session time to now
         current_time = datetime.now()

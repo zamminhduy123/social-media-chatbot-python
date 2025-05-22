@@ -5,6 +5,7 @@ from google.genai.types import (
     HarmCategory,
     SafetySetting,
 )
+from pydantic import BaseModel
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -48,6 +49,9 @@ GREETING_RESPONSE = (
     "Nếu bạn có góp ý gì cho mình, hãy dùng lệnh /feedback <tin nhắn> nhé. Cảm ơn bạn 🥰"
 )
 
+class BotMessage(BaseModel):
+    message: str
+    image_url: str
 
 # === GenerateContentConfig ===
 def get_chat_config():
@@ -105,3 +109,9 @@ def get_evaluator_config():
             ),
         ],
     )
+
+def get_chat_config_json() ->GenerateContentConfig:
+    chat_config = get_chat_config()
+    chat_config.response_mime_type = "application/json"
+    chat_config.response_schema = list[BotMessage]
+    return chat_config

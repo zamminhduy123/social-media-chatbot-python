@@ -51,7 +51,8 @@ GREETING_RESPONSE = (
 
 class BotMessage(BaseModel):
     message: str
-    image_url: str
+    image_send_threshold: float
+    image_urls: list[str]
 
 # === GenerateContentConfig ===
 def get_chat_config():
@@ -113,5 +114,5 @@ def get_evaluator_config():
 def get_chat_config_json() ->GenerateContentConfig:
     chat_config = get_chat_config()
     chat_config.response_mime_type = "application/json"
-    chat_config.response_schema = list[BotMessage]
+    chat_config.response_schema = BotMessage
     return chat_config

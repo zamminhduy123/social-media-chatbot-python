@@ -61,7 +61,7 @@ CONFIG_FIELD_TYPE_MAP = {
     "app_debounce_time": (float, DEBOUNCE_TIME),
 }
 
-g_gemini_config = get_chat_config_json().to_json_dict()
+g_gemini_config = get_chat_config_json().model_dump(mode="python", exclude_unset=True)
 g_app_config = {"bot_typing_cpm": BOT_TYPING_CPM,
                 "debounce_time": DEBOUNCE_TIME}
 
@@ -133,7 +133,7 @@ def get_gemini_response_with_context_json(
     sender_id: str,
     history: List[genai_types.Content] = None,
     config: Dict = None,
-) -> List[BotMessage] | None:
+) -> BotMessage | None:
     """
     Generates a Gemini response using additional context prepended to the user message.
 
@@ -154,7 +154,7 @@ def get_gemini_response_json(
     sender_id: str,
     history: List[genai_types.Content] = None,
     config: Dict = None,
-) -> List[BotMessage] | None:
+) -> BotMessage | None:
     """
     Generates a Gemini response based on the user message and optional session data.
 
@@ -177,15 +177,22 @@ def get_gemini_response_json(
         chat: Chat = chat_session["chat"]  # type: ignore
         _response = chat.send_message(user_message, config=config)
 
-        response = [BotMessage(message=clean_message(_response.text), image_url="")]
+        response = BotMessage(
+            message=clean_message(_response.text),
+            image_send_threshold=0.0,
+            image_url=[],
+        )
         if _response.parsed:
-            response: List[BotMessage] = _response.parsed
-            for bot_message in response:
-                bot_message.message = clean_message(bot_message.message)
+            response: BotMessage = _response.parsed
+            response.message = clean_message(response.message)
         return response  # type: ignore
     except Exception as e:
         print("Gemini error:", e)
-        return [BotMessage(message=DEFAULT_RESPONSE, image_url="")]
+        return BotMessage(
+            message=DEFAULT_RESPONSE,
+            image_send_threshold=0.0,
+            image_url=[],
+        )
 
 
 def get_new_conversation_context(sender_id, object_type):
@@ -268,7 +275,9 @@ def get_and_send_message(sender_id, messages : Message, object_type):
         return
 
     # Bot response may contain more than one message.
-    bot_reply, image_url = bot_response[0].message, bot_response[0].image_url
+    bot_reply = bot_response.message
+    image_send_threshold = bot_response.image_send_threshold
+    image_urls = bot_response.image_urls
     print("[Webhook]: reply", bot_reply[:100])
 
     
@@ -278,8 +287,11 @@ def get_and_send_message(sender_id, messages : Message, object_type):
 
     if bot_reply:
         thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, bot_reply, object_type)
-
-    if image_url:
+    # TODO: might want to add this threshold into a config
+    # also image_urls may contains multiple urls (should be up to 5)
+    # NOTE: `image_send_threshold` can be above 0.5 without any image_urls. 
+    if image_urls and image_send_threshold > 0.5: 
+        image_url = image_urls[0]
         print("[Webhook]: Image URL send", image_url)
         image_url = f"https://{image_url}" if not image_url.startswith("http") else image_url
         # extra delay for image

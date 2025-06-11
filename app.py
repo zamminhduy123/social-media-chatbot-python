@@ -181,6 +181,7 @@ def get_gemini_response_json(
             message=clean_message(_response.text),
             image_send_threshold=0.0,
             image_urls=[],
+            customer_potential=0.0,
         )
         if _response.parsed:
             response: BotMessage = _response.parsed
@@ -192,6 +193,7 @@ def get_gemini_response_json(
             message=DEFAULT_RESPONSE,
             image_send_threshold=0.0,
             image_urls=[],
+            customer_potential=0.0,
         )
 
 

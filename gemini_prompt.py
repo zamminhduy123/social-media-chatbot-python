@@ -53,6 +53,7 @@ class BotMessage(BaseModel):
     message: str
     image_send_threshold: float
     image_urls: list[str]
+    customer_potential: float
 
 # === GenerateContentConfig ===
 def get_chat_config():

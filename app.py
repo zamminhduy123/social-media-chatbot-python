@@ -214,6 +214,19 @@ def get_new_conversation_context(sender_id, object_type):
     
     return batch_messages
 
+def get_conversation_label(sender_id, object_type):
+    conversation = meta_api.get_conversation_messages_by_user_id(sender_id)
+    if not conversation:
+        return ""
+    
+    # Get the labels of the conversation
+    labels = meta_api.get_labels_of_conversation(sender_id, object_type)
+    print("[Webhook]: Conversation labels", labels)
+    if not labels:
+        return ""
+    # Return the first label
+    return labels[0] if labels else ""
+
 def check_owner(object_type, sender_id):
     print("[Webhook]: Check owner", sender_id)
     if object_type == MESSAGE_OBJECT_TYPE["facebook_page"]:
@@ -226,6 +239,7 @@ def is_bot_message(app_id, sender_id, object_type):
     if (check_owner(object_type, sender_id) and str(app_id) == str(APP_ID)):
         return True
     return False
+
 
 # ===== === === === === === === CORE LOGICS
 def get_and_send_message(sender_id, messages : Message, object_type):
@@ -347,7 +361,10 @@ def handle_user_message(message_event, object_type):
             print("[Webhook]: Owner resume chat session", recipient_id)
             chat_sessions.resume_session(recipient_id)
         return
-    
+
+    # get user conversation label
+    get_labels_of_conversation = get_conversation_label(sender_id, object_type)
+
     # get reply if exists
     reply, reply_message_text = message_event.get("message", {}).get("reply_to", None), None
     if reply != None:

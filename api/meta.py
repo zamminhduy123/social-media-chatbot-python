@@ -260,3 +260,41 @@ def send_typing_indicator(psid, platform=MESSAGE_OBJECT_TYPE["facebook_page"]):
     }
     headers = {'Content-Type': 'application/json'}
     requests.post(url, headers=headers, json=payload)
+
+def associate_label_to_conversation(label_id: str,
+                                    conversation_id: str,
+                                    object_type=MESSAGE_OBJECT_TYPE["facebook_page"]) -> bool:
+    """
+    Attach a custom label to a thread (conversation_id).
+    Returns True on success, False otherwise.
+    """
+    access_token = os.getenv("PAGE_ACCESS_TOKEN") \
+        if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] \
+        else os.getenv("INSTA_ACCESS_TOKEN")
+    base = FACEBOOK_URL['base'] if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] else INSTA_URL['base']
+    url = f"{base}/{conversation_id}/custom_labels"
+    params = {"access_token": access_token}
+    json_data = {"label": label_id}
+    resp = requests.post(url, params=params, json=json_data)
+    if not resp.ok:
+        print("Error associating label:", resp.status_code, resp.text)
+    return resp.ok
+
+def get_labels_of_conversation(conversation_id: str,
+                               object_type=MESSAGE_OBJECT_TYPE["facebook_page"]) -> list[str]:
+    """
+    Return list of label IDs attached to a thread.
+    """
+    access_token = os.getenv("PAGE_ACCESS_TOKEN") \
+        if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] \
+        else os.getenv("INSTA_ACCESS_TOKEN")
+    base = FACEBOOK_URL['base'] if object_type == MESSAGE_OBJECT_TYPE["facebook_page"] else INSTA_URL['base']
+    url = f"{base}/{conversation_id}/custom_labels"
+    params = {"access_token": access_token}
+    resp = requests.get(url, params=params)
+    if resp.ok:
+        data = resp.json().get("data", [])
+        return [item.get("id") for item in data]
+    else:
+        print("Error fetching conversation labels:", resp.status_code, resp.text)
+        return []

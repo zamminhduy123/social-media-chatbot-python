@@ -19,6 +19,13 @@ MESSAGE_OBJECT_TYPE = {
     'instagram': 'instagram',
     'facebook_page': 'page'
 }
+# constant.py   (add or extend)
+IMAGE_ATTACHMENT_TYPE = {
+    "url": "image_url",
+    "file": "image_file"
+}
+
+IMAGE_SEND_KEYWORD = 'send_image'
 
 RESUME_BOT_KEYWORD = "!!!"
 NUM_MESSAGE_CONTEXT = 10

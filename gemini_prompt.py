@@ -5,6 +5,7 @@ from google.genai.types import (
     HarmCategory,
     SafetySetting,
 )
+from pydantic import BaseModel
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -13,7 +14,7 @@ with open(f"{BASE_DIR}/pages/config.html", "r", encoding="utf8") as fhandle:
     HTML_GEMINI_CONFIG_FORM = fhandle.read()
 
 SYSTEM_PROMPT = ""
-with open(f"{BASE_DIR}/system_prompt.txt", "r", encoding="utf8") as fhandle:
+with open(f"{BASE_DIR}/sale_system_prompt_test.txt", "r", encoding="utf8") as fhandle:
     SYSTEM_PROMPT = fhandle.read()
 
 MODEL_ID = "gemini-2.0-flash"
@@ -48,6 +49,10 @@ GREETING_RESPONSE = (
     "Nếu bạn có góp ý gì cho mình, hãy dùng lệnh /feedback <tin nhắn> nhé. Cảm ơn bạn 🥰"
 )
 
+class BotMessage(BaseModel):
+    message: str
+    image_send_threshold: float
+    image_urls: list[str]
 
 # === GenerateContentConfig ===
 def get_chat_config():
@@ -105,3 +110,9 @@ def get_evaluator_config():
             ),
         ],
     )
+
+def get_chat_config_json() ->GenerateContentConfig:
+    chat_config = get_chat_config()
+    chat_config.response_mime_type = "application/json"
+    chat_config.response_schema = BotMessage
+    return chat_config

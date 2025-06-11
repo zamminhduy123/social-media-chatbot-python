@@ -20,9 +20,11 @@ from gemini_prompt import (
     SEED,
     SYSTEM_PROMPT,
     TEMPERATURE,
+    BotMessage,
     get_chat_config,
+    get_chat_config_json,
 )
-from utils import logging, thread_utils
+from utils import logging, thread_utils, common
 
 # === Load environment variables ===
 load_dotenv()
@@ -42,7 +44,8 @@ from constant import (
     NUM_MESSAGE_CONTEXT,
     RESUME_BOT_KEYWORD,
     DEBOUNCE_TIME,
-    BOT_TYPING_CPM
+    BOT_TYPING_CPM,
+    IMAGE_SEND_KEYWORD
 )
 
 # === Configure Gemini ===
@@ -58,13 +61,13 @@ CONFIG_FIELD_TYPE_MAP = {
     "app_debounce_time": (float, DEBOUNCE_TIME),
 }
 
-g_gemini_config = get_chat_config().to_json_dict()
+g_gemini_config = get_chat_config_json().model_dump(mode="python", exclude_unset=True)
 g_app_config = {"bot_typing_cpm": BOT_TYPING_CPM,
                 "debounce_time": DEBOUNCE_TIME}
 
 app = Flask(__name__)
 
-chat_sessions = SessionController(client)
+chat_sessions = SessionController(client, default_gemini_config=g_gemini_config)
 feedback_controller = FeedbackController(delta_time=0) # for testing, change to 30 for production
 debounce_controller = DebounceMessageController(wait_seconds=DEBOUNCE_TIME) # 5 for testing, change to 10 for production
 
@@ -122,6 +125,74 @@ def get_gemini_response(
     except Exception as e:
         print("Gemini error:", e)
         return DEFAULT_RESPONSE
+
+
+def get_gemini_response_with_context_json(
+    user_message: str,
+    context: str,
+    sender_id: str,
+    history: List[genai_types.Content] = None,
+    config: Dict = None,
+) -> BotMessage | None:
+    """
+    Generates a Gemini response using additional context prepended to the user message.
+
+    :param user_message: The user's input to the chatbot.
+    :param context: Supplementary context to guide the model's response.
+    :param sender_id: Unique identifier used to retrieve or create a chat session.
+    :param history: Optional list of past messages (chat history) for context.
+    :param system_prompt: Optional instruction to condition the model's response
+        style or behavior, this will override the configuration of the chat session.
+    :return: The model's generated text reply, or a fallback message on error.
+    """
+    message = f'Context: """{context}"""\n\n{user_message}'
+    return get_gemini_response_json(message, sender_id, history, config)
+
+
+def get_gemini_response_json(
+    user_message: str,
+    sender_id: str,
+    history: List[genai_types.Content] = None,
+    config: Dict = None,
+) -> BotMessage | None:
+    """
+    Generates a Gemini response based on the user message and optional session data.
+
+    :param user_message: The user's input to the chatbot.
+    :param sender_id: Unique identifier used to retrieve or create a chat session.
+    :param history: Optional list of past messages (chat history) for context.
+    :param system_prompt: Optional instruction to condition the model's response
+        style or behavior, this will override the configuration of the chat session.
+    :return: The model's generated text reply, or a fallback message on error.
+    """
+    # actually generate response:
+    try:
+        chat_session = chat_sessions.get_session(sender_id, history)
+        if chat_session == None:
+            return None
+
+        if config:
+            config = genai_types.GenerateContentConfig(**config)
+
+        chat: Chat = chat_session["chat"]  # type: ignore
+        _response = chat.send_message(user_message, config=config)
+
+        response = BotMessage(
+            message=clean_message(_response.text),
+            image_send_threshold=0.0,
+            image_urls=[],
+        )
+        if _response.parsed:
+            response: BotMessage = _response.parsed
+            response.message = clean_message(response.message)
+        return response  # type: ignore
+    except Exception as e:
+        print("Gemini error:", e)
+        return BotMessage(
+            message=DEFAULT_RESPONSE,
+            image_send_threshold=0.0,
+            image_urls=[],
+        )
 
 
 def get_new_conversation_context(sender_id, object_type):
@@ -183,7 +254,7 @@ def get_and_send_message(sender_id, messages : Message, object_type):
     # handle reply if any
     if reply_context:
         print("[Webhook]: Reply to message", reply_context)    
-        bot_reply = get_gemini_response_with_context(
+        bot_response = get_gemini_response_with_context_json(
             user_message,
             reply_context,
             sender_id,
@@ -192,22 +263,40 @@ def get_and_send_message(sender_id, messages : Message, object_type):
         )
 
     else:
-        bot_reply = get_gemini_response(
+        bot_response = get_gemini_response_json(
             user_message,
             sender_id,
             history=chat_history,
             config=g_gemini_config,
         )
 
-    if not bot_reply:
+    if not bot_response:
         # Suspended, no response
         return
+
+    # Bot response may contain more than one message.
+    bot_reply = bot_response.message
+    image_send_threshold = bot_response.image_send_threshold
+    image_urls = bot_response.image_urls
     print("[Webhook]: reply", bot_reply[:100])
 
+    
     # assume typing cost 190 char per minute 
-    typing_time = len(bot_reply) / g_app_config["bot_typing_cpm"] * 60
+    typing_time = len(bot_reply) / g_app_config["bot_typing_cpm"] * 60  
+    print("[Webhook]: Bot Reply", bot_reply)
 
-    thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, bot_reply, object_type)
+    if bot_reply:
+        thread_utils.delayed_call(typing_time, meta_api.send_meta_message, sender_id, bot_reply, object_type)
+    # TODO: might want to add this threshold into a config
+    # also image_urls may contains multiple urls (should be up to 5)
+    # NOTE: `image_send_threshold` can be above 0.5 without any image_urls. 
+    if image_urls and image_send_threshold > 0.5: 
+        image_url = image_urls[0]
+        print("[Webhook]: Image URL send", image_url)
+        image_url = f"https://{image_url}" if not image_url.startswith("http") else image_url
+        # extra delay for image
+        thread_utils.delayed_call(typing_time, meta_api.send_meta_image, sender_id, image_url, object_type=object_type)
+
 
 
 # === === === === === === === ROUTING FUNCTION

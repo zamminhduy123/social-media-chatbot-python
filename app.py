@@ -21,6 +21,7 @@ from gemini_prompt import (
     SYSTEM_PROMPT,
     TEMPERATURE,
     BotMessage,
+    get_bot_message_defaults,
     get_chat_config,
     get_chat_config_json,
 )
@@ -177,25 +178,17 @@ def get_gemini_response_json(
         chat: Chat = chat_session["chat"]  # type: ignore
         _response = chat.send_message(user_message, config=config)
 
-        response = BotMessage(
-            message=clean_message(_response.text),
-            image_send_threshold=0.0,
-            image_urls=[],
-            customer_potential=0.0,
-        )
+        response = get_bot_message_defaults()
+        response.message = clean_message(_response.text)
         if _response.parsed:
             response: BotMessage = _response.parsed
             response.message = clean_message(response.message)
         return response  # type: ignore
     except Exception as e:
         print("Gemini error:", e)
-        return BotMessage(
-            message=DEFAULT_RESPONSE,
-            image_send_threshold=0.0,
-            image_urls=[],
-            customer_potential=0.0,
-        )
-
+        response = get_bot_message_defaults()
+        response.message = DEFAULT_RESPONSE
+        return response
 
 def get_new_conversation_context(sender_id, object_type):
     """
@@ -298,7 +291,6 @@ def get_and_send_message(sender_id, messages : Message, object_type):
         image_url = f"https://{image_url}" if not image_url.startswith("http") else image_url
         # extra delay for image
         thread_utils.delayed_call(typing_time, meta_api.send_meta_image, sender_id, image_url, object_type=object_type)
-
 
 
 # === === === === === === === ROUTING FUNCTION

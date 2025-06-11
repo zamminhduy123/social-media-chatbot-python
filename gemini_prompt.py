@@ -49,11 +49,29 @@ GREETING_RESPONSE = (
     "Nếu bạn có góp ý gì cho mình, hãy dùng lệnh /feedback <tin nhắn> nhé. Cảm ơn bạn 🥰"
 )
 
+
+# Default value is not supported in the response schema for the Gemini API.
 class BotMessage(BaseModel):
     message: str
     image_send_threshold: float
     image_urls: list[str]
+    customer_name: str
+    customer_phone_number: str
+    customer_home_address: str
     customer_potential: float
+
+
+def get_bot_message_defaults():
+    return BotMessage(
+        message="",
+        image_send_threshold=0.0,
+        image_urls=[],
+        customer_name="",
+        customer_phone_number="",
+        customer_home_address="",
+        customer_potential=0.0,
+    )
+
 
 # === GenerateContentConfig ===
 def get_chat_config():
@@ -112,7 +130,8 @@ def get_evaluator_config():
         ],
     )
 
-def get_chat_config_json() ->GenerateContentConfig:
+
+def get_chat_config_json() -> GenerateContentConfig:
     chat_config = get_chat_config()
     chat_config.response_mime_type = "application/json"
     chat_config.response_schema = BotMessage

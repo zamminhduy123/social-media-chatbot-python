@@ -25,6 +25,7 @@ from gemini_prompt import (
     get_chat_config,
     get_chat_config_json,
 )
+from script.RAG import text_chunking
 from utils import logging, thread_utils, common
 import json
 
@@ -555,8 +556,12 @@ def update_context():
                 return "JSON file must contain a list of documents.", 400
 
             # Add documents to the repository
-            context_controller.add_documents(data)
-            
+            all_chunks = text_chunking(data)
+            context_controller.add_documents(
+                documents=[chunk['content'] for chunk in all_chunks],
+                metadatas=[{'source_url': chunk['source_url'], 'title': chunk['title'], 'chunk_id': chunk['chunk_id']} for chunk in all_chunks]
+            )
+
             return f"Successfully added {len(data)} documents to the repository.", 200
         except json.JSONDecodeError:
             return "Invalid JSON format.", 400

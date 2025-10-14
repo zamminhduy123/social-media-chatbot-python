@@ -1,11 +1,14 @@
+import os
 import chromadb
 from chromadb.utils import embedding_functions
+from google import genai
 
 class ContextController:
     """
     Manages the connection to ChromaDB and handles similarity queries
     to retrieve relevant context for the chatbot.
     """
+    batch_size = 100
 
     def __init__(self, path: str = "chroma_db", collection_name: str = "facebook_posts"):
         """
@@ -15,18 +18,21 @@ class ContextController:
             path (str): The path to the directory where ChromaDB data will be stored.
             collection_name (str): The name of the collection to use.
         """
+        API_KEY = os.getenv("GEMINI_API_KEY")
+        self.client = genai.Client(api_key=API_KEY)
+        self.model_name = 'models/text-embedding-004'
         try:
             # Using a persistent client to store data on disk
-            self.client = chromadb.PersistentClient(path=path)
+            self.client_DB = chromadb.PersistentClient(path=path)
 
-            self.collection = self.client.get_or_create_collection(name=collection_name, embedding_function=embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2"))
+            self.collection = self.client_DB.get_or_create_collection(name=collection_name)
 
             print(f"Successfully connected to ChromaDB and loaded collection '{collection_name}'.")
 
         except Exception as e:
             print(f"Error initializing ContextController: {e}")
             self.client = None
-            self.collection = None
+            self.collection = None  
 
     def add_documents(self, documents: list[str], metadatas: list[dict] = None, ids: list[str] = None):
         """
@@ -46,9 +52,29 @@ class ContextController:
             start_id = self.collection.count()
             ids = [str(i) for i in range(start_id, start_id + len(documents))]
 
+        all_embeddings = []
+        chunk_contents = documents
+    
+        # Process the chunks in batches to respect API limits
+        for i in range(0, len(chunk_contents), self.batch_size):
+            batch = chunk_contents[i:i + self.batch_size]
+            try:
+                # Call the Gemini API
+                result = self.client.models.embed_content(
+                    model=self.model_name,
+                    contents=batch,
+                )
+                embeddings = [emb.values for emb in result.embeddings]
+
+                all_embeddings.extend(embeddings)
+                print(f"  - Embedded batch {i//self.batch_size + 1}/{(len(chunk_contents) + self.batch_size - 1)//self.batch_size}")
+            except Exception as e:
+                print(f"An error occurred during embedding batch {i//self.batch_size + 1}: {e}")
+                
         try:
             self.collection.add(
                 documents=documents,
+                embeddings=all_embeddings,
                 metadatas=metadatas,
                 ids=ids
             )
@@ -72,10 +98,17 @@ class ContextController:
             print("Collection is not available. Cannot perform query.")
             return []
 
+        # 1. Embed the query
+        query_embedding = self.client.models.embed_content(
+            model=self.model_name,
+            contents=[query_text],
+        ).embeddings[0].values
+        print(f"Query embedding: {query_embedding[:5]}... (truncated)")
+
         try:
             results = self.collection.query(
-                query_texts=[query_text],
-                n_results=n_results
+                query_embeddings=query_embedding, # Query takes a list of embeddings
+                n_results=3
             )
             # The result is a dictionary, we are interested in the 'documents' for the first query
             return results.get('documents', [[]])[0]

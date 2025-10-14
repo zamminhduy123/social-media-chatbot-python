@@ -1,7 +1,7 @@
 import json
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer
+import os
 import chromadb
+from google import genai
 
 FAQ_PATH = '/Users/rzy/Desktop/ChatBot/facebook-chatbot/testAS/testas_data_en.json'
 
@@ -13,18 +13,43 @@ def load_data(path):
     print(f"Loaded {len(data)} documents from the website.")
     return data
 
+def text_splitting(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list[str]:
+    """
+    Splits a text into overlapping chunks.
 
-# 2. Preprocess the data (if necessary)
-# For simplicity, we'll assume the data is already clean and structured.
-# 2. Initialize the Text Splitter
-# chunk_size: The maximum size of each chunk (in characters).
-# chunk_overlap: How many characters to overlap between chunks. This helps
-#                maintain context between chunks.
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=1000,
-    chunk_overlap=200,
-    length_function=len
-)
+    Args:
+        text: The input text to be split.
+        chunk_size: The maximum size of each chunk (in characters).
+        chunk_overlap: The number of characters to overlap between chunks.
+
+    Returns:
+        A list of text chunks.
+    """
+    if not isinstance(text, str):
+        return []
+
+    # 1. First, split the text by paragraphs
+    paragraphs = text.split('\n\n')
+    
+    all_chunks = []
+    
+    for paragraph in paragraphs:
+        if len(paragraph) <= chunk_size:
+            # If the paragraph is small enough, add it as a single chunk
+            if paragraph.strip(): # Ensure we don't add empty strings
+                all_chunks.append(paragraph.strip())
+        else:
+            # If the paragraph is too long, split it with a sliding window
+            start_index = 0
+            while start_index < len(paragraph):
+                end_index = start_index + chunk_size
+                chunk = paragraph[start_index:end_index]
+                all_chunks.append(chunk.strip())
+                
+                # Move the start index for the next chunk
+                start_index += (chunk_size - chunk_overlap)
+                
+    return all_chunks
 
 def text_chunking(data):
     all_chunks = []
@@ -34,7 +59,7 @@ def text_chunking(data):
         # We only process docs that have meaningful content
         if 'body' in doc and doc['body']:
             # Split the document's body text
-            chunks = text_splitter.split_text(doc['body'])
+            chunks = text_splitting(doc['body'])
 
             # Add metadata to each chunk
             for i, chunk_text in enumerate(chunks):
@@ -48,29 +73,15 @@ def text_chunking(data):
     print(f"Created {len(all_chunks)} chunks from {len(data)} documents.")
     return all_chunks
 
-
-def process_and_add_collection(context_repository: ContextRepository, data):
-    all_chunks = text_chunking(data)
-    # Example: Print the first chunk to see the result
-    if all_chunks:
-        print("\n--- Example Chunk ---")
-        print(f"Source: {all_chunks[0]['source_url']}")
-        print(f"Title: {all_chunks[0]['title']}")
-        print(f"Content: '{all_chunks[0]['content'][:200]}...'") # Print first 200 chars
-
-    # We'll get the content from our chunks
-    chunk_contents = [chunk['content'] for chunk in all_chunks]
-
-    print("\nCreating embeddings for all chunks...")
-    # This will take a moment depending on the number of chunks and your hardware.
-    embeddings = context_repository.encode(chunk_contents, show_progress_bar=True)
-
-    print(f"Created {len(embeddings)} embeddings, each with a dimension of {embeddings.shape[1]}.")
-
 # Test Gemini integration
 if __name__ == "__main__":
     
-    ADD_DATA = True
+    ADD_DATA = False
+    API_KEY = os.getenv("GEMINI_API_KEY")
+    client = genai.Client(api_key=API_KEY)
+    model_name = 'models/text-embedding-004'
+    batch_size = 100
+    all_embeddings = []
 
     if (ADD_DATA):
         data = load_data(FAQ_PATH)
@@ -83,30 +94,43 @@ if __name__ == "__main__":
             print(f"Content: '{all_chunks[0]['content'][:200]}...'") # Print first 200 chars
         
         
-        # Load a pre-trained model. 'all-MiniLM-L6-v2' is a great, fast starting model.
-        model = SentenceTransformer('all-MiniLM-L6-v2')
-
         # We'll get the content from our chunks
         chunk_contents = [chunk['content'] for chunk in all_chunks]
+        print(f"\nTotal chunks to embed: {len(chunk_contents)}")
 
         print("\nCreating embeddings for all chunks...")
-        # This will take a moment depending on the number of chunks and your hardware.
-        embeddings = model.encode(chunk_contents, show_progress_bar=True)
+        # Process the chunks in batches to respect API limits
+        for i in range(0, len(chunk_contents), batch_size):
+            batch = chunk_contents[i:i + batch_size]
+            try:
+                # Call the Gemini API
+                result = client.models.embed_content(
+                    model=model_name,
+                    contents=batch,
+                )
+                embeddings = [emb.values for emb in result.embeddings]
 
-        print(f"Created {len(embeddings)} embeddings, each with a dimension of {embeddings.shape[1]}.")
+                all_embeddings.extend(embeddings)
+                print(f"  - Embedded batch {i//batch_size + 1}/{(len(chunk_contents) + batch_size - 1)//batch_size}")
+            except Exception as e:
+                print(f"An error occurred during embedding batch {i//batch_size + 1}: {e}")
+                # Optional: Add retry logic here
 
     # 5. Store embeddings in a vector database
     # 5.1. Setup a ChromaDB client (it can store data in memory or on disk)
-    client = chromadb.PersistentClient(path="/Users/rzy/Desktop/ChatBot/facebook-chatbot/db")
+    client_db = chromadb.PersistentClient(path="/Users/rzy/Desktop/ChatBot/facebook-chatbot/db")
 
     # 5.2. Create a "collection" which is like a table in a SQL database
-    collection = client.get_or_create_collection(name="testas_docs")
+    collection = client_db.get_or_create_collection(
+        name="testas_docs"
+    )
 
     # 5.3. Add your documents to the collection
     # We need to add the embeddings, the text content itself, and the metadata.
     if (ADD_DATA):
+        print(f"Adding {len(all_embeddings)}, {len(all_chunks)} embeddings to the collection.")
         collection.add(
-            embeddings=embeddings,
+            embeddings=all_embeddings,
             documents=[chunk['content'] for chunk in all_chunks],
             metadatas=[{'source': chunk['source_url'], 'title': chunk['title']} for chunk in all_chunks],
             ids=[chunk['chunk_id'] for chunk in all_chunks] # Each item needs a unique ID
@@ -118,11 +142,14 @@ if __name__ == "__main__":
     query = "What is the structure of the digital TestAS exam?"
 
     # 1. Embed the query
-    query_embedding = model.encode([query])[0] # Note: encode expects a list
+    query_embedding = client.models.embed_content(
+        model=model_name,
+        contents=[query],
+    ).embeddings[0].values
 
     # 2. Query the collection to get the 3 most relevant chunks
     results = collection.query(
-        query_embeddings=[query_embedding.tolist()], # Query takes a list of embeddings
+        query_embeddings=query_embedding, # Query takes a list of embeddings
         n_results=3
     )
 
@@ -144,3 +171,4 @@ if __name__ == "__main__":
 
     print("\n--- Prompt for LLM ---")
     print(prompt_for_llm)
+    print(results['documents'][0])

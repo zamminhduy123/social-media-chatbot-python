@@ -1,5 +1,4 @@
 import os
-import random
 from datetime import datetime
 from typing import Dict, List
 
@@ -22,11 +21,10 @@ from gemini_prompt import (
     SYSTEM_PROMPT,
     TEMPERATURE,
     BotMessage,
-    get_chat_config,
     get_chat_config_json,
 )
 from script.RAG import text_chunking
-from utils import logging, thread_utils, common
+from utils import logging, thread_utils
 import json
 
 # === Load environment variables ===

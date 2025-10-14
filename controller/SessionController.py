@@ -1,13 +1,13 @@
 import uuid
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, List, Optional, TypedDict
 
 from google import genai
 from google.genai import types as genai_types
 from google.genai.chats import Chat
 
-from gemini_prompt import MODEL_ID, get_chat_config
+from gemini_prompt import MODEL_ID
 
 SESSION_CAPACITY = 100
 SESSION_TIME_THRESHOLD = 86400  # in second

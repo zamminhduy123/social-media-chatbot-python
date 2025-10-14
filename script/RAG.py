@@ -1,6 +1,4 @@
 import json
-import os
-import chromadb
 from google import genai
 
 FAQ_PATH = '/Users/rzy/Desktop/ChatBot/facebook-chatbot/testAS/testas_data_en.json'

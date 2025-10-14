@@ -125,48 +125,48 @@ class ContextController:
         return self.collection.count()
 
 # Example usage:
-if __name__ == '__main__':
-    # 1. Initialize the controller
-    context_controller = ContextController(path="chroma_db", collection_name="facebook_posts")
+# if __name__ == '__main__':
+#     # 1. Initialize the controller
+#     context_controller = ContextController(path="chroma_db", collection_name="facebook_posts")
 
-    # 2. Add some documents if the collection is empty
-    if context_controller.get_collection_count() == 0:
-        print("Collection is empty. Adding sample documents.")
-        sample_docs = [
-            "Our business hours are Monday to Friday, 9 AM to 5 PM.",
-            "You can reset your password by clicking the 'Forgot Password' link on the login page.",
-            "We offer shipping to the United States and Canada.",
-            "Our return policy allows returns within 30 days of purchase.",
-            "To contact customer support, please email support@example.com."
-        ]
-        sample_metadatas = [
-            {'topic': 'hours'},
-            {'topic': 'account'},
-            {'topic': 'shipping'},
-            {'topic': 'returns'},
-            {'topic': 'support'}
-        ]
-        context_controller.add_documents(documents=sample_docs, metadatas=sample_metadatas)
+#     # 2. Add some documents if the collection is empty
+#     if context_controller.get_collection_count() == 0:
+#         print("Collection is empty. Adding sample documents.")
+#         sample_docs = [
+#             "Our business hours are Monday to Friday, 9 AM to 5 PM.",
+#             "You can reset your password by clicking the 'Forgot Password' link on the login page.",
+#             "We offer shipping to the United States and Canada.",
+#             "Our return policy allows returns within 30 days of purchase.",
+#             "To contact customer support, please email support@example.com."
+#         ]
+#         sample_metadatas = [
+#             {'topic': 'hours'},
+#             {'topic': 'account'},
+#             {'topic': 'shipping'},
+#             {'topic': 'returns'},
+#             {'topic': 'support'}
+#         ]
+#         context_controller.add_documents(documents=sample_docs, metadatas=sample_metadatas)
 
-    # 3. Perform a similarity search
-    user_query = "What are your opening times?"
-    print(f"\nQuerying for: '{user_query}'")
-    similar_contexts = context_controller.query_similarity(user_query, n_results=2)
+#     # 3. Perform a similarity search
+#     user_query = "What are your opening times?"
+#     print(f"\nQuerying for: '{user_query}'")
+#     similar_contexts = context_controller.query_similarity(user_query, n_results=2)
 
-    # 4. Print the results
-    if similar_contexts:
-        print("Found similar contexts:")
-        for i, context in enumerate(similar_contexts):
-            print(f"{i+1}: {context}")
-    else:
-        print("No similar contexts found.")
+#     # 4. Print the results
+#     if similar_contexts:
+#         print("Found similar contexts:")
+#         for i, context in enumerate(similar_contexts):
+#             print(f"{i+1}: {context}")
+#     else:
+#         print("No similar contexts found.")
 
-    user_query_2 = "How can I change my password?"
-    print(f"\nQuerying for: '{user_query_2}'")
-    similar_contexts_2 = context_controller.query_similarity(user_query_2, n_results=1)
-    if similar_contexts_2:
-        print("Found similar contexts:")
-        for i, context in enumerate(similar_contexts_2):
-            print(f"{i+1}: {context}")
-    else:
-        print("No similar contexts found.")
+#     user_query_2 = "How can I change my password?"
+#     print(f"\nQuerying for: '{user_query_2}'")
+#     similar_contexts_2 = context_controller.query_similarity(user_query_2, n_results=1)
+#     if similar_contexts_2:
+#         print("Found similar contexts:")
+#         for i, context in enumerate(similar_contexts_2):
+#             print(f"{i+1}: {context}")
+#     else:
+#         print("No similar contexts found.")

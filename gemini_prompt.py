@@ -14,7 +14,7 @@ with open(f"{BASE_DIR}/pages/config.html", "r", encoding="utf8") as fhandle:
     HTML_GEMINI_CONFIG_FORM = fhandle.read()
 
 SYSTEM_PROMPT = ""
-with open(f"{BASE_DIR}/sale_system_prompt_test.txt", "r", encoding="utf8") as fhandle:
+with open(f"{BASE_DIR}/system_prompt.txt.txt", "r", encoding="utf8") as fhandle:
     SYSTEM_PROMPT = fhandle.read()
 
 MODEL_ID = "gemini-2.0-flash"

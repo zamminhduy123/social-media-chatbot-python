@@ -3,8 +3,6 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 import chromadb
 
-from repository import ContextRepository
-
 FAQ_PATH = '/Users/rzy/Desktop/ChatBot/facebook-chatbot/testAS/testas_data_en.json'
 
 def load_data(path):

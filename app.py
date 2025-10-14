@@ -25,8 +25,8 @@ from gemini_prompt import (
     get_chat_config,
     get_chat_config_json,
 )
-from repository.ContextRepository import ContextRepository
 from utils import logging, thread_utils, common
+import json
 
 # === Load environment variables ===
 load_dotenv()
@@ -76,8 +76,7 @@ feedback_controller = FeedbackController(delta_time=0) # for testing, change to 
 debounce_controller = DebounceMessageController(wait_seconds=DEBOUNCE_TIME) # 5 for testing, change to 10 for production
 
 # Global context controller
-context_repository = ContextRepository(path=db_path, collection_name=COLLECTION_NAME)
-context_controller = ContextController(context_repository=context_repository)
+context_controller = ContextController(path=db_path, collection_name=COLLECTION_NAME)
 
 tools = [
     {
@@ -533,6 +532,39 @@ def reset():
     # Reset all sessions
     chat_sessions.hard_reset()
     return "Reset all sessions"
+
+@app.route("/update_context", methods=["POST"])
+def update_context():
+    """
+    Updates the context repository with data from an uploaded JSON file.
+    The JSON file should contain a list of strings.
+    """
+    if 'file' not in request.files:
+        return "No file part in the request", 400
+    file = request.files['file']
+    if file.filename == '':
+        return "No file selected for uploading", 400
+    if file and file.filename.endswith('.json'):
+        try:
+            # Read the content of the file
+            content = file.read()
+            data = json.loads(content)
+
+            # Assuming the JSON file contains a list of documents (strings)
+            if not isinstance(data, list):
+                return "JSON file must contain a list of documents.", 400
+
+            # Add documents to the repository
+            context_controller.add_documents(data)
+            
+            return f"Successfully added {len(data)} documents to the repository.", 200
+        except json.JSONDecodeError:
+            return "Invalid JSON format.", 400
+        except Exception as e:
+            print(f"Error updating context: {e}")
+            return "An error occurred while updating the context.", 500
+    else:
+        return "Invalid file type. Please upload a JSON file.", 400
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():

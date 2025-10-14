@@ -3,6 +3,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 import chromadb
 
+from repository import ContextRepository
+
 FAQ_PATH = '/Users/rzy/Desktop/ChatBot/facebook-chatbot/testAS/testas_data_en.json'
 
 def load_data(path):
@@ -49,6 +51,23 @@ def text_chunking(data):
     return all_chunks
 
 
+def process_and_add_collection(context_repository: ContextRepository, data):
+    all_chunks = text_chunking(data)
+    # Example: Print the first chunk to see the result
+    if all_chunks:
+        print("\n--- Example Chunk ---")
+        print(f"Source: {all_chunks[0]['source_url']}")
+        print(f"Title: {all_chunks[0]['title']}")
+        print(f"Content: '{all_chunks[0]['content'][:200]}...'") # Print first 200 chars
+
+    # We'll get the content from our chunks
+    chunk_contents = [chunk['content'] for chunk in all_chunks]
+
+    print("\nCreating embeddings for all chunks...")
+    # This will take a moment depending on the number of chunks and your hardware.
+    embeddings = context_repository.encode(chunk_contents, show_progress_bar=True)
+
+    print(f"Created {len(embeddings)} embeddings, each with a dimension of {embeddings.shape[1]}.")
 
 # Test Gemini integration
 if __name__ == "__main__":

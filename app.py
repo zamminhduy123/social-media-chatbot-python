@@ -10,6 +10,7 @@ from google.genai import types as genai_types
 from google.genai.chats import Chat
 
 from api import meta as meta_api
+from controller.ContextController import ContextController
 from controller.FeedbackController import FeedbackController
 from controller.SessionController import SessionController
 from controller.DebounceMessageController import DebounceMessageController, Message
@@ -24,10 +25,12 @@ from gemini_prompt import (
     get_chat_config,
     get_chat_config_json,
 )
+from repository.ContextRepository import ContextRepository
 from utils import logging, thread_utils, common
 
 # === Load environment variables ===
 load_dotenv()
+db_path = os.getenv("CHROMA_DB_PATH", "chroma_db")
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 INSTA_ACCESS_TOKEN = os.getenv("INSTA_ACCESS_TOKEN")
@@ -45,7 +48,8 @@ from constant import (
     RESUME_BOT_KEYWORD,
     DEBOUNCE_TIME,
     BOT_TYPING_CPM,
-    IMAGE_SEND_KEYWORD
+    IMAGE_SEND_KEYWORD,
+    COLLECTION_NAME
 )
 
 # === Configure Gemini ===
@@ -70,6 +74,31 @@ app = Flask(__name__)
 chat_sessions = SessionController(client, default_gemini_config=g_gemini_config)
 feedback_controller = FeedbackController(delta_time=0) # for testing, change to 30 for production
 debounce_controller = DebounceMessageController(wait_seconds=DEBOUNCE_TIME) # 5 for testing, change to 10 for production
+
+# Global context controller
+context_repository = ContextRepository(path=db_path, collection_name=COLLECTION_NAME)
+context_controller = ContextController(context_repository=context_repository)
+
+tools = [
+    {
+        "function_declarations": [
+            {
+                "name": "retrieve_testas_information",
+                "description": "Use this function when the user asks a specific question about the TestAS exam, German universities, requirements, dates, structure, or any factual topic.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "query": {
+                            "type": "STRING",
+                            "description": "The specific question the user is asking."
+                        }
+                    },
+                    "required": ["query"]
+                }
+            }
+        ]
+    }
+]
 
 # === === === === === === === ACTUAL WORK FUNCTION
 def get_gemini_response_with_context(
@@ -148,6 +177,40 @@ def get_gemini_response_with_context_json(
     message = f'Context: """{context}"""\n\n{user_message}'
     return get_gemini_response_json(message, sender_id, history, config)
 
+def get_gemini_response_with_context_json_rag(
+    user_message: str,
+    context: str,
+    sender_id: str,
+    history: List[genai_types.Content] = None,
+    config: Dict = None,
+) -> BotMessage | None:
+    """
+    Generates a Gemini response using additional context prepended to the user message.
+
+    :param user_message: The user's input to the chatbot.
+    :param context: Supplementary context to guide the model's response.
+    :param sender_id: Unique identifier used to retrieve or create a chat session.
+    :param history: Optional list of past messages (chat history) for context.
+    :param system_prompt: Optional instruction to condition the model's response
+        style or behavior, this will override the configuration of the chat session.
+    :return: The model's generated text reply, or a fallback message on error.
+    """
+
+    results = context_controller.query_relavant(user_message)
+    # 3. Prepare the context for the LLM
+    context = "\n---\n".join(results['documents'][0]) if results and results.get('documents') else "No relevant context found."
+
+    message = f"""
+    Dựa trên ngữ cảnh sau, vui lòng trả lời câu hỏi của người dùng. Nếu ngữ cảnh không chứa câu trả lời, hãy nói rằng bạn không biết.
+
+    Ngữ cảnh:
+    {context}
+
+    Câu hỏi: {user_message}
+
+    Trả lời:
+    """
+    return get_gemini_response_json(message, sender_id, history, config)
 
 def get_gemini_response_json(
     user_message: str,
@@ -167,7 +230,7 @@ def get_gemini_response_json(
     """
     # actually generate response:
     try:
-        chat_session = chat_sessions.get_session(sender_id, history)
+        chat_session = chat_sessions.get_session(sender_id, history, tools=tools)
         if chat_session == None:
             return None
 
@@ -176,6 +239,19 @@ def get_gemini_response_json(
 
         chat: Chat = chat_session["chat"]  # type: ignore
         _response = chat.send_message(user_message, config=config)
+
+        # Check if the model decided to call a function
+        try:
+            function_call = _response.candidates[0].content.parts[0].function_call
+            # If we are here, the model chose a tool. Now we execute it.
+            if function_call.name == "retrieve_testas_information":
+                query_arg = function_call.args['query']
+                _response.text = get_gemini_response_with_context_json_rag(query=query_arg)
+                print(f"-> Final Answer: {_response.text}")
+        except (IndexError, AttributeError):
+            # The model decided to answer directly without using a tool
+            print("\n[Decision: Direct Answer (No Tool)]")
+            print(f"-> Model Response: {_response.text}")
 
         response = BotMessage(
             message=clean_message(_response.text),
@@ -312,8 +388,6 @@ def get_and_send_message(sender_id, messages : Message, object_type):
         image_url = f"https://{image_url}" if not image_url.startswith("http") else image_url
         # extra delay for image
         thread_utils.delayed_call(typing_time, meta_api.send_meta_image, sender_id, image_url, object_type=object_type)
-
-
 
 # === === === === === === === ROUTING FUNCTION
 def handle_user_feedback(sender_id, user_message, object_type):

@@ -97,6 +97,7 @@ class SessionController:
         user_id,
         history: List[genai_types.Content] = None,
         config: Optional[genai_types.GenerateContentConfigOrDict] = None,
+        tools: List[genai_types.Tool] = None,
     ):
         if history:
             print(f"[Session Controller] Adding chat history for {user_id}")
@@ -107,6 +108,7 @@ class SessionController:
                 model=MODEL_ID,
                 config=config,
                 history=history,
+                tools=tools,
             ),
             "last_date": datetime.now(),
         }
@@ -149,6 +151,7 @@ class SessionController:
         user_id,
         history: List[genai_types.Content] = None,
         config: Optional[genai_types.GenerateContentConfigOrDict] = None,
+        tools: List[genai_types.Tool] = None
     ):
         """
         Retrieves the chat session for a user. If the user doesn't have a chat session, create a new one.
@@ -161,7 +164,7 @@ class SessionController:
             session = self.sessions.get(user_id)
         else:
             print(f"[Session Controller] create new session for {user_id}")
-            session = self.create_session(user_id, history, config)
+            session = self.create_session(user_id, history, config, tools)
 
         # update chat session time to now
         current_time = datetime.now()

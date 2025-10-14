@@ -31,3 +31,5 @@ RESUME_BOT_KEYWORD = "!!!"
 NUM_MESSAGE_CONTEXT = 10
 DEBOUNCE_TIME = 20
 BOT_TYPING_CPM = 190 # character per minute
+
+COLLECTION_NAME = "testas_docs"

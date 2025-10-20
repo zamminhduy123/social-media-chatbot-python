@@ -2,13 +2,15 @@
 
 This is an AI-powered chatbot built for [KNI Education](https://kni.vn), a leading center for TestAS preparation and German study consultation in Vietnam. The chatbot integrates Google Gemini (via `google-genai`) with Facebook Messenger to provide friendly and informative responses to prospective students.
 
----
+
+![System Diagram](./image/System.png)
 
 ## 🚀 Features
 
 - ✨ AI-based replies powered by **Gemini Pro (Google GenAI)**
 - 💬 Facebook Messenger integration using webhook
 - 🇻🇳 Vietnamese prompt customization
+- ℹ️ RAG system for data using **ChromaDB**
 - 🔒 Secure config management via `.env`
 - 🌐 Deployable on **Render**, Railway, or VPS
 

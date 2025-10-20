@@ -18,11 +18,16 @@ class ContextController:
             collection_name (str): The name of the collection to use.
         """
         API_KEY = os.getenv("GEMINI_API_KEY")
+        CHROMA_API_KEY = os.getenv("CHROMA_API_KEY")
         self.client = genai.Client(api_key=API_KEY)
         self.model_name = 'models/text-embedding-004'
         try:
             # Using a persistent client to store data on disk
-            self.client_DB = chromadb.PersistentClient(path=path)
+            self.client_DB = chromadb.CloudClient(
+                api_key=CHROMA_API_KEY,
+                tenant='cd268c1a-064e-41e7-9286-35350f1ab529',
+                database='KNI'
+            )
 
             self.collection = self.client_DB.get_or_create_collection(name=collection_name)
 

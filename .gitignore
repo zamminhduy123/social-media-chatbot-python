@@ -19,12 +19,22 @@ env/
 .DS_Store
 Thumbs.db
 
+# Ignore test and coverage files
+tests/
+testAS/
+tutorial/
+data/
+
 # Ignore IDE and editor files
 .vscode/
 .idea/
 
 # Ignore log files
 *.log
+
+# Ignore database files
+db/
+chroma_db/
 
 # Ignore Flask-related temporary files
 instance/

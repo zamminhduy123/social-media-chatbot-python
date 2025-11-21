@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import threading
 import time
@@ -7,7 +8,7 @@ from .GoogleSheetController import GoogleSheetController
 
 class FeedbackController:
     def __init__(self, delta_time=30):
-        creds_path = "/etc/secrets/rugged-filament-455205-m2-4e0d0bd3ebf9.json"
+        creds_path = "/Users/rzy/Desktop/ChatBot/facebook-chatbot/credentials/rugged-filament-455205-m2-4e0d0bd3ebf9.json"
         sheet_id = "1NziTHdKPEoYNoEt9RgYl-j8SQKFSd9Jv706xA-Wb4mI"
 
         self.sheet_controller_react = GoogleSheetController(creds_path, sheet_id, "Feedbacks")
@@ -34,6 +35,31 @@ class FeedbackController:
         ])
 
     def remove_feedback(self, message_id):
+        row = self.sheet_controller_react.find_row_by_cell_value(message_id)
+        if row:
+            self.sheet_controller_react.delete_row(row)
+    
+    async def async_log_feedback(self, platform, sender_id, message_id, bot_reply, reaction, emoji):
+        feedback_entry = [platform, sender_id, message_id, bot_reply, reaction, emoji, datetime.now().isoformat()]
+        # Run blocking I/O in a separate thread
+        await asyncio.to_thread(self.sheet_controller_react.append_row, feedback_entry)
+
+    async def async_log_feedback_text(self, platform, sender_id, feedback_text):
+        entry = [
+            platform,
+            sender_id,
+            feedback_text,
+            datetime.now().isoformat()
+        ]
+        # Run blocking I/O in a separate thread
+        await asyncio.to_thread(self.sheet_controller_text.append_row, entry)
+
+    async def async_remove_feedback(self, message_id):
+        # Run blocking I/O in a separate thread
+        await asyncio.to_thread(self._remove_feedback_sync, message_id)
+
+    def _remove_feedback_sync(self, message_id):
+        """Helper method to run synchronous logic in thread"""
         row = self.sheet_controller_react.find_row_by_cell_value(message_id)
         if row:
             self.sheet_controller_react.delete_row(row)

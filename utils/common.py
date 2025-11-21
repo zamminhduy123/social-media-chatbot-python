@@ -48,3 +48,9 @@ def strip_keyword_directives(text: str,
     matches = pattern.findall(text)           # list of captured parts
     cleaned  = pattern.sub("", text).strip()  # remove directives
     return matches, cleaned
+
+def safe_cast(val, to_type, default):
+    try:
+        return to_type(val)
+    except (ValueError, TypeError):
+        return default

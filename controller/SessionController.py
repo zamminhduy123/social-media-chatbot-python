@@ -5,7 +5,7 @@ from typing import Any, List, Optional, TypedDict
 
 from google import genai
 from google.genai import types as genai_types
-from google.genai.chats import Chat
+from google.genai.chats import Chat, AsyncChat
 
 from gemini_prompt import MODEL_ID
 
@@ -17,14 +17,14 @@ class SuspenInfo(TypedDict):
     suspended_time: datetime | None
 
 class ChatEntryDict(TypedDict):
-    chat: Any | Chat
+    chat: Any | Chat | AsyncChat
     last_date: datetime
 
 
 class SessionController:
     def __init__(
         self,
-        client: genai.Client | Any,
+        client: genai.Client |  Any,
         session_capacity: int = SESSION_CAPACITY,
         session_time_threshold: int = SESSION_TIME_THRESHOLD,
         default_gemini_config: Optional[genai_types.GenerateContentConfigOrDict] = None,
@@ -113,6 +113,16 @@ class SessionController:
             "last_date": datetime.now(),
         }
         return self.sessions[user_id]
+    
+    async def async_create_session(
+        self,
+        user_id,
+        history: List[genai_types.Content] = None,
+        config: Optional[genai_types.GenerateContentConfigOrDict] = None,
+        tools: List[genai_types.Tool] = None,
+    ):
+        """Async wrapper for create_session"""
+        return self.create_session(user_id, history, config, tools)
 
     def is_chat_suspended(self, id):
         """
@@ -175,6 +185,16 @@ class SessionController:
         self._sort_and_clean_chat_sessions(current_time)
 
         return session
+
+    async def async_get_session(
+        self,
+        user_id,
+        history: List[genai_types.Content] = None,
+        config: Optional[genai_types.GenerateContentConfigOrDict] = None,
+        tools: List[genai_types.Tool] = None
+    ):
+        """Async wrapper for get_session"""
+        return self.get_session(user_id, history, config, tools)
 
     def delete_session(self, user_id):
         """

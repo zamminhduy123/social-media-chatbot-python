@@ -1,6 +1,7 @@
 import os
 import chromadb
 from google import genai
+import asyncio
 
 class ContextController:
     """
@@ -127,6 +128,39 @@ class ContextController:
         if not self.collection:
             return 0
         return self.collection.count()
+
+    async def async_get_collection_count(self) -> int:
+        """
+        Asynchronously returns the total number of items in the collection.
+        """
+        if not self.collection:
+            return 0
+        return await asyncio.to_thread(self.collection.count)
+    
+    async def async_add_documents(self, documents: list[str], metadatas: list[dict] = None, ids: list[str] = None):
+        """
+        Asynchronously adds documents to the ChromaDB collection.
+
+        Args:
+            documents (list[str]): A list of document texts to add.
+            metadatas (list[dict], optional): A list of metadata dictionaries corresponding to the documents.
+            ids (list[str], optional): A list of unique IDs for the documents. If not provided, they will be generated.
+        """
+        await asyncio.to_thread(self.add_documents, documents, metadatas, ids)
+        
+    async def async_query_similarity(self, query_text: str, n_results: int = 3) -> list[str]:
+        """
+        Asynchronously queries the collection for documents similar to the query text.
+
+        Args:
+            query_text (str): The text to find similar documents for.
+            n_results (int): The number of similar documents to return.
+
+        Returns:
+            list[str]: A list of the most similar document texts.
+                       Returns an empty list if an error occurs or no results are found.
+        """
+        return await asyncio.to_thread(self.query_similarity, query_text, n_results)
 
 # Example usage:
 # if __name__ == '__main__':

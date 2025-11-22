@@ -33,36 +33,63 @@ This is an AI-powered chatbot built for [KNI Education](https://kni.vn), a leadi
    git clone https://github.com/yourusername/facebook-chatbot.git
    cd facebook-chatbot
 2. **Set up virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate   # Windows: venv\Scripts\activate
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-4. **Configure environment variables**
-   ```bash
+   Create a .env file in the root directory:
    GEMINI_API_KEY=your-gemini-api-key
-    VERIFY_TOKEN=kni-verify-token
-    PAGE_ACCESS_TOKEN=your-facebook-page-access-token
+   VERIFY_TOKEN=your-verify-token
+   PAGE_ACCESS_TOKEN=your-page-access-token
+   INSTA_ACCESS_TOKEN=your-insta-token
+   CHROMA_DB_PATH=chroma_db
+
+3. **Install dependencies**
+   Using uv (Fastest):
+   ```bash
+   uv venv
+   source .venv/bin/activate
+   uv pip install -r pyproject.toml
+
+   Or using standard pip:
+
+   pip install -r pyproject.toml
 
 --- 
 
 ## ▶️ Local Development
 
-Run Flask development server:
+Run the FastAPI development server with hot-reload:
 ```bash
-   python app.py
+   uvicorn app_fastapi:app --reload --port 8000
 ```
-Or with Gunicorn (for testing production mode):
+The server will start at http://localhost:8000.
 
-```bash
-   gunicorn -w 4 -b 0.0.0.0:3000 app:app
-```
+API Endpoints
+Webhook: GET/POST /webhook
+Config UI: GET /config
+Update Context (RAG): POST /update_context (Upload JSON file)
 
 ## 🌐 Webhook Verification (Facebook Setup)
 ```bash
    GET /webhook?hub.verify_token=kni-verify-token&hub.challenge=123456&hub.mode=subscribe
 ```
+
+## 🐳 Docker Deployment
+This project uses uv inside Docker for faster builds.
+
+1. Build the image
+   ```bash
+   docker build -t facebook-chatbot .
+
+2. Run the container
+   Mount the chroma_db volume to persist RAG data and credentials for Google Sheets access.
+   
+   ```bash
+   docker run -d \
+   --name kni-chatbot \
+   -p 8000:8000 \
+   --env-file .env \
+   -v $(pwd)/chroma_db:/app/chroma_db \
+   -v $(pwd)/credentials:/app/credentials \
+   facebook-chatbot
+
 
 ## 🤝 About KNI Education
 

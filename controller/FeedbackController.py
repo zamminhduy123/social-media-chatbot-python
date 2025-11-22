@@ -8,7 +8,7 @@ from .GoogleSheetController import GoogleSheetController
 
 class FeedbackController:
     def __init__(self, delta_time=30):
-        creds_path = "/Users/rzy/Desktop/ChatBot/facebook-chatbot/credentials/rugged-filament-455205-m2-4e0d0bd3ebf9.json"
+        creds_path = "credentials/rugged-filament-455205-m2-4e0d0bd3ebf9.json"
         sheet_id = "1NziTHdKPEoYNoEt9RgYl-j8SQKFSd9Jv706xA-Wb4mI"
 
         self.sheet_controller_react = GoogleSheetController(creds_path, sheet_id, "Feedbacks")
